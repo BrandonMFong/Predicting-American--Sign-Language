@@ -8,6 +8,9 @@ import numpy as np
 import matplotlib.pyplot as plt 
 import sys
 import os
+import math
+import time
+from progress.bar import Bar
 
 from tensorflow.python.util.nest import flatten_with_joined_string_paths
 
@@ -57,31 +60,38 @@ class xASLHandler():
 
         # Organize into reshaped datasets
         if okayToContinue:
-            temp =  self._trainData[self._trainColumns].shape[1] ** 2
-            if type(temp) == int:
+            temp = math.sqrt(self._trainData[self._trainColumns].shape[1])
+            if math.remainder(temp,1) == 0.0:
+                temp = int(temp)
                 newShape = (temp, temp)
             else:
                 print("Error in reading data")
                 okayToContinue = False
             
+        if okayToContinue:
             # Test
-            self._imageTestArray = np.array([temp,temp,1])
-            for row in self._testData.iterrows():
-                key = row[self._targetColumn]
-                data = np.array(row[self._trainColumns])
-                reshapedData = data.reshape(newShape)
-
-                if check is False:
-                    self._imageTestArray = np.concatenate([self._imageTestArray], reshapedData)
-                    check = False
-                else:
-                    self._imageTestArray = np.concatenate(self._imageTestArray, reshapedData)
+            with Bar('Processing reshaped test data', max=self._testData.shape[0]) as bar:
+                for _, row in self._testData.iterrows():
+                    data = np.array(row[self._trainColumns])
+                    reshapedData = data.reshape(newShape)
+                    if self._imageTestArray is None:
+                        self._imageTestArray = np.array([reshapedData])
+                    else:
+                        self._imageTestArray = np.concatenate((self._imageTestArray, [reshapedData]))
+                    bar.next()  
+            # Train
+            with Bar('Processing reshaped train data', max=self._trainData.shape[0]) as bar:
+                for _, row in self._trainData.iterrows():
+                    data = np.array(row[self._trainColumns])
+                    reshapedData = data.reshape(newShape)
+                    if self._imageTrainArray is None:
+                        self._imageTrainArray = np.array([reshapedData])
+                    else:
+                        self._imageTrainArray = np.concatenate((self._imageTrainArray, [reshapedData]))
+                    bar.next()  
 
     def Run(self):
-        arr = np.array(self._testData.loc[0, self._trainColumns])
-        print(arr.reshape((28,28)))
-        plt.imshow(arr.reshape((28,28)))
-        plt.show()
+        print(self._imageTestArray)
 
 class Project():
     """
