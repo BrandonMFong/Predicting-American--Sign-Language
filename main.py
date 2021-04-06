@@ -11,6 +11,9 @@ import os
 import math
 import time
 from progress.bar import Bar
+import threading
+import time, random
+from atpbar import atpbar
 
 from tensorflow.python.util.nest import flatten_with_joined_string_paths
 
@@ -68,27 +71,42 @@ class xASLHandler():
                 print("Error in reading data")
                 okayToContinue = False
             
+        # TODO separate progress bars 
         if okayToContinue:
             # Test
-            with Bar('Processing reshaped test data', max=self._testData.shape[0]) as bar:
-                for _, row in self._testData.iterrows():
-                    data = np.array(row[self._trainColumns])
-                    reshapedData = data.reshape(newShape)
-                    if self._imageTestArray is None:
-                        self._imageTestArray = np.array([reshapedData])
-                    else:
-                        self._imageTestArray = np.concatenate((self._imageTestArray, [reshapedData]))
-                    bar.next()  
+            loadImageTestArrayThread = threading.Thread(target=self.loadImageTestArrayOnThread, args=(newShape,))
+            loadImageTestArrayThread.start()
+
             # Train
-            with Bar('Processing reshaped train data', max=self._trainData.shape[0]) as bar:
-                for _, row in self._trainData.iterrows():
-                    data = np.array(row[self._trainColumns])
-                    reshapedData = data.reshape(newShape)
-                    if self._imageTrainArray is None:
-                        self._imageTrainArray = np.array([reshapedData])
-                    else:
-                        self._imageTrainArray = np.concatenate((self._imageTrainArray, [reshapedData]))
-                    bar.next()  
+            print()
+            loadImageTrainArrayThread = threading.Thread(target=self.loadImageTrainArrayOnThread, args=(newShape,))
+            loadImageTrainArrayThread.start()
+
+            loadImageTestArrayThread.join()
+            loadImageTrainArrayThread.join()
+
+
+    def loadImageTestArrayOnThread(self,newShape):
+        with Bar('Processing reshaped test data', max=self._testData.shape[0]) as bar:
+            for _, row in self._testData.iterrows():
+                data = np.array(row[self._trainColumns])
+                reshapedData = data.reshape(newShape)
+                if self._imageTestArray is None:
+                    self._imageTestArray = np.array([reshapedData])
+                else:
+                    self._imageTestArray = np.concatenate((self._imageTestArray, [reshapedData]))
+                bar.next()  
+
+    def loadImageTrainArrayOnThread(self,newShape):
+        with Bar('Processing reshaped train data', max=self._trainData.shape[0]) as bar:
+            for _, row in self._trainData.iterrows():
+                data = np.array(row[self._trainColumns])
+                reshapedData = data.reshape(newShape)
+                if self._imageTrainArray is None:
+                    self._imageTrainArray = np.array([reshapedData])
+                else:
+                    self._imageTrainArray = np.concatenate((self._imageTrainArray, [reshapedData]))
+                bar.next()  
 
     def Run(self):
         print(self._imageTestArray)
