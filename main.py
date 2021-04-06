@@ -87,26 +87,24 @@ class xASLHandler():
 
 
     def loadImageTestArrayOnThread(self,newShape):
-        with Bar('Processing reshaped test data', max=self._testData.shape[0]) as bar:
-            for _, row in self._testData.iterrows():
-                data = np.array(row[self._trainColumns])
-                reshapedData = data.reshape(newShape)
-                if self._imageTestArray is None:
-                    self._imageTestArray = np.array([reshapedData])
-                else:
-                    self._imageTestArray = np.concatenate((self._imageTestArray, [reshapedData]))
-                bar.next()  
+        for i in atpbar(range(self._testData.shape[0]), name="Test Data"):
+            row = self._testData.iloc[i]
+            data = np.array(row[self._trainColumns])
+            reshapedData = data.reshape(newShape)
+            if self._imageTestArray is None:
+                self._imageTestArray = np.array([reshapedData])
+            else:
+                self._imageTestArray = np.concatenate((self._imageTestArray, [reshapedData]))
 
     def loadImageTrainArrayOnThread(self,newShape):
-        with Bar('Processing reshaped train data', max=self._trainData.shape[0]) as bar:
-            for _, row in self._trainData.iterrows():
-                data = np.array(row[self._trainColumns])
-                reshapedData = data.reshape(newShape)
-                if self._imageTrainArray is None:
-                    self._imageTrainArray = np.array([reshapedData])
-                else:
-                    self._imageTrainArray = np.concatenate((self._imageTrainArray, [reshapedData]))
-                bar.next()  
+        for i in atpbar(range(self._trainData.shape[0]), name="Train Data"):
+            row = self._testData.iloc[i]
+            data = np.array(row[self._trainColumns])
+            reshapedData = data.reshape(newShape)
+            if self._imageTrainArray is None:
+                self._imageTrainArray = np.array([reshapedData])
+            else:
+                self._imageTrainArray = np.concatenate((self._imageTrainArray, [reshapedData]))
 
     def Run(self):
         print(self._imageTestArray)
