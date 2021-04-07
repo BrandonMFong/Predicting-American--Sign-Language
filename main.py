@@ -2,20 +2,31 @@
 # 3/30/2021
 # Final Project
 
-from numpy.core.fromnumeric import reshape
+from tensorflow import keras
 import pandas as pd 
 import numpy as np
 import matplotlib.pyplot as plt 
 import sys
 import os
 import math
-import time
-from progress.bar import Bar
 import threading
-import time, random
 from atpbar import atpbar
+import pickle
+from os import path
 
-from tensorflow.python.util.nest import flatten_with_joined_string_paths
+
+def load(filename):
+    result = None
+    found = False 
+    # Get Data
+    if path.exists(filename):
+        result = pickle.load(open(filename, "rb"))[0]
+        found = True 
+
+    return result, found
+
+def save(variable, filename):
+    pickle.dump([variable], open(filename, "wb"))
 
 class xASLHandler():
 
@@ -25,10 +36,19 @@ class xASLHandler():
     _rawTestFile = "/data/test/sign.csv"
     _rawTrainFile = "/data/train/sign.csv"
 
+    # Cache files
+    _testCache = "testImages.cache"
+    _trainCache = "trainImages.cache"
+
     def __init__(self) -> None:
         okayToContinue = True 
         fullTestFilename = None
         fullTrainFilename = None
+        temp = None
+        newShape = None
+        testCacheFound = False
+        trainCacheFound = False
+
         self._trainData = None
         self._testData = None
         self._targetColumn = None
@@ -37,9 +57,6 @@ class xASLHandler():
         self._trainImages = None
         self._imageTestArray = None
         self._imageTrainArray = None
-        temp = None
-        newShape = None
-        check = False
 
         if okayToContinue:
             fullTestFilename = self._basePath + self._rawTestFile
@@ -71,20 +88,32 @@ class xASLHandler():
                 print("Error in reading data")
                 okayToContinue = False
             
-        # TODO separate progress bars 
         if okayToContinue:
-            # Test
-            loadImageTestArrayThread = threading.Thread(target=self.loadImageTestArrayOnThread, args=(newShape,))
-            loadImageTestArrayThread.start()
+            self._imageTestArray, testCacheFound    = load(self._testCache)
+            self._imageTrainArray, trainCacheFound  = load(self._trainCache)
+
+            if testCacheFound is not True:
+                # Test
+                print("Image Test cache was not found, creating data...")
+                loadImageTestArrayThread = threading.Thread(target=self.loadImageTestArrayOnThread, args=(newShape,))
+                loadImageTestArrayThread.start()
 
             # Train
-            print()
-            loadImageTrainArrayThread = threading.Thread(target=self.loadImageTrainArrayOnThread, args=(newShape,))
-            loadImageTrainArrayThread.start()
+            if trainCacheFound is not True:
+                print("Image Train cache was not found, creating data...")
+                loadImageTrainArrayThread = threading.Thread(target=self.loadImageTrainArrayOnThread, args=(newShape,))
+                loadImageTrainArrayThread.start()
 
-            loadImageTestArrayThread.join()
-            loadImageTrainArrayThread.join()
+            if trainCacheFound is not True:
+                loadImageTrainArrayThread.join()
 
+            if testCacheFound is not True:
+                loadImageTestArrayThread.join()
+
+            okayToContinue = True if self._imageTestArray is not None and self._imageTrainArray is not None else False 
+        
+        if ~okayToContinue:
+            raise RuntimeError("Error: problem during initialization")
 
     def loadImageTestArrayOnThread(self,newShape):
         for i in atpbar(range(self._testData.shape[0]), name="Test Data"):
@@ -95,19 +124,25 @@ class xASLHandler():
                 self._imageTestArray = np.array([reshapedData])
             else:
                 self._imageTestArray = np.concatenate((self._imageTestArray, [reshapedData]))
+        
+        save(self._imageTestArray, self._testCache)
 
     def loadImageTrainArrayOnThread(self,newShape):
-        for i in atpbar(range(self._trainData.shape[0]), name="Train Data"):
-            row = self._testData.iloc[i]
+        for i in atpbar(range(self._testData.shape[0]), name="Train Data"):
+            row = self._trainData.iloc[i]
             data = np.array(row[self._trainColumns])
             reshapedData = data.reshape(newShape)
             if self._imageTrainArray is None:
                 self._imageTrainArray = np.array([reshapedData])
             else:
                 self._imageTrainArray = np.concatenate((self._imageTrainArray, [reshapedData]))
+        
+        save(self._imageTrainArray, self._trainCache)
 
     def Run(self):
         print(self._imageTestArray)
+        plt.imshow(self._imageTestArray[0])
+        plt.show()
 
 class Project():
     """
