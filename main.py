@@ -2,17 +2,17 @@
 # 3/30/2021
 # Final Project
 
-from tensorflow import keras
-import pandas as pd 
-import numpy as np
-import matplotlib.pyplot as plt 
-import sys
-import os
-import math
-import threading
-from atpbar import atpbar
-import pickle
-from os import path
+from    tensorflow          import keras
+from    atpbar              import atpbar
+from    os                  import path
+import  pandas              as pd 
+import  numpy               as np
+import  matplotlib.pyplot   as plt 
+import  sys
+import  os
+import  math
+import  threading
+import  pickle
 
 
 def load(filename):
@@ -41,22 +41,22 @@ class xASLHandler():
     _trainCache = "trainImages.cache"
 
     def __init__(self) -> None:
-        okayToContinue = True 
-        fullTestFilename = None
-        fullTrainFilename = None
-        temp = None
-        newShape = None
-        testCacheFound = False
-        trainCacheFound = False
+        okayToContinue      = True 
+        fullTestFilename    = None
+        fullTrainFilename   = None
+        temp                = None
+        newShape            = None
+        testCacheFound      = False
+        trainCacheFound     = False
 
-        self._trainData = None
-        self._testData = None
-        self._targetColumn = None
-        self._trainColumns = None
-        self._testImages = None
-        self._trainImages = None
-        self._imageTestArray = None
-        self._imageTrainArray = None
+        self._trainData         = None
+        self._testData          = None
+        self._targetColumn      = None
+        self._trainColumns      = None
+        self._testImages        = None
+        self._trainImages       = None
+        self._imageTestArray    = None
+        self._imageTrainArray   = None
 
         if okayToContinue:
             fullTestFilename = self._basePath + self._rawTestFile
@@ -69,21 +69,21 @@ class xASLHandler():
                 print("File", fullTrainFilename, "does not exist")
 
         if okayToContinue:
-            self._testData = pd.read_csv(fullTestFilename)
+            self._testData  = pd.read_csv(fullTestFilename)
             self._trainData = pd.read_csv(fullTrainFilename)
-            okayToContinue = True if self._testData.empty is False and self._trainData.empty is False else False 
+            okayToContinue  = True if self._testData.empty is False and self._trainData.empty is False else False 
 
         if okayToContinue:
-            self._targetColumn = "label"
-            self._trainColumns = self._trainData.drop([self._targetColumn], axis=1).columns
-            okayToContinue = True if self._trainColumns is not None else False 
+            self._targetColumn  = "label"
+            self._trainColumns  = self._trainData.drop([self._targetColumn], axis=1).columns
+            okayToContinue      = True if self._trainColumns is not None else False 
 
         # Organize into reshaped datasets
         if okayToContinue:
             temp = math.sqrt(self._trainData[self._trainColumns].shape[1])
             if math.remainder(temp,1) == 0.0:
-                temp = int(temp)
-                newShape = (temp, temp)
+                temp        = int(temp)
+                newShape    = (temp, temp)
             else:
                 print("Error in reading data")
                 okayToContinue = False
@@ -112,7 +112,7 @@ class xASLHandler():
 
             okayToContinue = True if self._imageTestArray is not None and self._imageTrainArray is not None else False 
         
-        if ~okayToContinue:
+        if okayToContinue is False:
             raise RuntimeError("Error: problem during initialization")
 
     def loadImageTestArrayOnThread(self,newShape):
@@ -128,7 +128,7 @@ class xASLHandler():
         save(self._imageTestArray, self._testCache)
 
     def loadImageTrainArrayOnThread(self,newShape):
-        for i in atpbar(range(self._testData.shape[0]), name="Train Data"):
+        for i in atpbar(range(self._trainData.shape[0]), name="Train Data"):
             row = self._trainData.iloc[i]
             data = np.array(row[self._trainColumns])
             reshapedData = data.reshape(newShape)
