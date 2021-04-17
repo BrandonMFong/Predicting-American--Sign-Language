@@ -1,0 +1,151 @@
+import os 
+import pickle 
+import numpy as np 
+import pandas as pd 
+import sys 
+from atpbar import atpbar
+from sys import platform 
+
+fsSeparator = "\\" if platform == "win32" else "/"
+
+class Logger():
+    PINK = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+
+    def Fatal(*args,**kargs):
+        print("fatal:", *args, **kargs)
+    def Error(*args,**kargs):
+        print("error:", *args, **kargs)
+    def Write(*args,**kargs):
+        print(*args,**kargs)
+
+class Base():
+    """
+    Base class for everything there has to do with data sets  
+    """
+
+    _reshapeFacialKeyImage = (96,96)
+
+    def __init__(self,dataSet=None) -> None:
+        
+        # Data set var 
+        self._dataSet = pd.DataFrame()
+
+        # Script root
+        self._scriptRoot = sys.path[0]
+
+        # Train and Target Columns
+        self._trainColumns = None 
+        self._targetColumns = None 
+
+        # PCA Column variable
+        self._pcaColumns = []
+
+    def GetPercentage(val):
+        result = val * 100
+        result = round(result)
+        return result
+
+    def CreateTrainAndTargetColumns(self,targetColumns):
+        """
+        TODO accept a list of targetcolumns 
+        """
+        result = True 
+        if result:
+            result = type(targetColumns) == list 
+            if ~result: 
+                Logger.Fatal("variable target column is not a list")
+        if result:
+            result = True if self._dataSet.empty is False else False
+        if result:
+            self._targetColumns = targetColumns
+            self._trainColumns = self._dataSet.drop(self._targetColumns, axis=1).columns
+            result = True if len(self._trainColumns) != 0 else False 
+        return result
+
+    def CreatePCAColumns(self,numComponents):
+        for n in range(numComponents):
+            self._pcaColumns.append("C{}".format(n))
+
+    def FitImageColumn(self,column=None):
+        """
+        Creates the appropriate object type for the image column for the Facial key points column
+        """
+        okayToContinue = True 
+        if okayToContinue:
+            column = self._targetColumn if column is None else column
+        if okayToContinue:
+            okayToContinue = column in self._dataSet
+            if okayToContinue is False:
+                print(self.FitImageColumn.__name__,": Error: column", column, "does not exist in dataframe")
+        if okayToContinue:
+            result = self._dataSet[column].apply(lambda image: np.fromstring(image, sep=" "))
+        if okayToContinue is False:
+            result = None
+
+        return result 
+
+class FileSystem():
+
+    def CreateFilePath(relativePath):
+        return sys.path[0] + fsSeparator + relativePath
+        
+class InitError(Exception):
+    """
+    Error raise for Init procedures 
+    """
+
+    _message = "Error in initialization"
+
+    def __init__(self,objectClass):
+        self._class = objectClass
+        super().__init__(self._message)
+
+    def __str__(self):
+        return f'{self._class}: init: {self._message}'
+        
+class TaskError(Exception):
+    """
+    Task Error 
+    """
+
+    _message = "Error in Task"
+
+    def __init__(self,objectClass,additionalInfo=None):
+        self._class = objectClass
+        self._additionalInfo = additionalInfo
+        super().__init__(self._message)
+
+    def __str__(self):
+        if self._additionalInfo is None:
+            self._additionalInfo = ""
+        else:
+            self._additionalInfo = ": " + self._additionalInfo
+        return f'{self._class}: Task: {self._message} {self._additionalInfo}'
+
+class FunctionLibrary():
+    def centeroidnp(arr):
+        length = arr.shape[0]
+        sum_x = np.sum(arr[:, 0])
+        sum_y = np.sum(arr[:, 1])
+        return sum_x/length, sum_y/length
+
+    def Load(filename):
+        """
+        Loads save variable in cache file if exists
+        Returns None if it does not exist 
+        """
+        result = None
+        if os.path.exists(filename):
+            result = pickle.load(open(filename, "rb"))[0]
+        return result
+
+    def Save(variable, filename):
+        """
+        Saves variable into cache file in the current directory 
+        """
+        pickle.dump([variable], open(filename, "wb"))

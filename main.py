@@ -5,6 +5,8 @@
 from    tensorflow          import keras
 from    atpbar              import atpbar
 from    os                  import path
+from    Library             import FunctionLibrary as fLib
+from    Library             import InitError
 import  pandas              as pd 
 import  numpy               as np
 import  matplotlib.pyplot   as plt 
@@ -13,20 +15,6 @@ import  os
 import  math
 import  threading
 import  pickle
-
-
-def load(filename):
-    result = None
-    found = False 
-    # Get Data
-    if path.exists(filename):
-        result = pickle.load(open(filename, "rb"))[0]
-        found = True 
-
-    return result, found
-
-def save(variable, filename):
-    pickle.dump([variable], open(filename, "wb"))
 
 class xASLHandler():
 
@@ -89,33 +77,34 @@ class xASLHandler():
                 okayToContinue = False
             
         if okayToContinue:
-            self._imageTestArray, testCacheFound    = load(self._testCache)
-            self._imageTrainArray, trainCacheFound  = load(self._trainCache)
+            self._imageTestArray    = fLib.Load(self._testCache)
+            self._imageTrainArray   = fLib.Load(self._trainCache)
 
-            if testCacheFound is not True:
+
+            if self._imageTestArray is None:
                 # Test
                 print("Image Test cache was not found, creating data...")
-                loadImageTestArrayThread = threading.Thread(target=self.loadImageTestArrayOnThread, args=(newShape,))
+                loadImageTestArrayThread = threading.Thread(target=self.LoadImageTestArrayOnThread, args=(newShape,))
                 loadImageTestArrayThread.start()
 
             # Train
-            if trainCacheFound is not True:
+            if self._imageTrainArray is None:
                 print("Image Train cache was not found, creating data...")
-                loadImageTrainArrayThread = threading.Thread(target=self.loadImageTrainArrayOnThread, args=(newShape,))
+                loadImageTrainArrayThread = threading.Thread(target=self.LoadImageTrainArrayOnThread, args=(newShape,))
                 loadImageTrainArrayThread.start()
 
-            if trainCacheFound is not True:
+            if self._imageTrainArray is None:
                 loadImageTrainArrayThread.join()
 
-            if testCacheFound is not True:
+            if self._imageTestArray is None:
                 loadImageTestArrayThread.join()
 
             okayToContinue = True if self._imageTestArray is not None and self._imageTrainArray is not None else False 
         
         if okayToContinue is False:
-            raise RuntimeError("Error: problem during initialization")
+            raise InitError(type(self))
 
-    def loadImageTestArrayOnThread(self,newShape):
+    def LoadImageTestArrayOnThread(self,newShape):
         for i in atpbar(range(self._testData.shape[0]), name="Test Data"):
             row = self._testData.iloc[i]
             data = np.array(row[self._trainColumns])
@@ -125,9 +114,9 @@ class xASLHandler():
             else:
                 self._imageTestArray = np.concatenate((self._imageTestArray, [reshapedData]))
         
-        save(self._imageTestArray, self._testCache)
+        fLib.Save(self._imageTestArray, self._testCache)
 
-    def loadImageTrainArrayOnThread(self,newShape):
+    def LoadImageTrainArrayOnThread(self,newShape):
         for i in atpbar(range(self._trainData.shape[0]), name="Train Data"):
             row = self._trainData.iloc[i]
             data = np.array(row[self._trainColumns])
@@ -137,9 +126,12 @@ class xASLHandler():
             else:
                 self._imageTrainArray = np.concatenate((self._imageTrainArray, [reshapedData]))
         
-        save(self._imageTrainArray, self._trainCache)
+        fLib.Save(self._imageTrainArray, self._trainCache)
 
     def Run(self):
+        """
+        TODO create model 
+        """
         print(self._imageTestArray)
         plt.imshow(self._imageTestArray[0])
         plt.show()

@@ -1,3 +1,7 @@
 # Misc
 *.zip
 *.cache
+*.code-workspace
+
+# binaries
+*.pyc
