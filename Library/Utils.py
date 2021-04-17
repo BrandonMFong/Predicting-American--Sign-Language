@@ -25,7 +25,7 @@ class Logger():
 
 class Base():
     """
-    Base class for everything there has to do with data sets  
+    Base class for everything there has to do with data sets in CES 514 
     """
 
     _reshapeFacialKeyImage = (96,96)
@@ -33,10 +33,10 @@ class Base():
     def __init__(self,dataSet=None) -> None:
         
         # Data set var 
-        self._dataSet = pd.DataFrame()
-
-        # Script root
-        self._scriptRoot = sys.path[0]
+        if dataSet is None: 
+            self._dataSet = pd.DataFrame()
+        else:
+            self._dataSet = dataSet
 
         # Train and Target Columns
         self._trainColumns = None 
@@ -57,7 +57,7 @@ class Base():
         result = True 
         if result:
             result = type(targetColumns) == list 
-            if ~result: 
+            if result is False: 
                 Logger.Fatal("variable target column is not a list")
         if result:
             result = True if self._dataSet.empty is False else False
@@ -77,11 +77,12 @@ class Base():
         """
         okayToContinue = True 
         if okayToContinue:
-            column = self._targetColumn if column is None else column
+            column = self._targetColumns if column is None else column
         if okayToContinue:
             okayToContinue = column in self._dataSet
             if okayToContinue is False:
-                print(self.FitImageColumn.__name__,": Error: column", column, "does not exist in dataframe")
+                # print(self.FitImageColumn.__name__,": Error: column", column, "does not exist in dataframe")
+                Logger.Error(self.FitImageColumn.__name__, ":column", column, "does not exist in dataframe")
         if okayToContinue:
             result = self._dataSet[column].apply(lambda image: np.fromstring(image, sep=" "))
         if okayToContinue is False:

@@ -5,8 +5,10 @@
 from    tensorflow          import keras
 from    atpbar              import atpbar
 from    os                  import path
-from    Library             import FunctionLibrary as fLib
+from    Library             import FunctionLibrary  as fLib
+from    Library             import FileSystem       as fs 
 from    Library             import InitError
+from    Library             import Base
 import  pandas              as pd 
 import  numpy               as np
 import  matplotlib.pyplot   as plt 
@@ -17,8 +19,6 @@ import  threading
 import  pickle
 
 class xASLHandler():
-
-    _basePath = sys.path[0]
 
     # Data
     _rawTestFile = "/data/test/sign.csv"
@@ -34,41 +34,40 @@ class xASLHandler():
         fullTrainFilename   = None
         temp                = None
         newShape            = None
-        testCacheFound      = False
-        trainCacheFound     = False
 
         self._trainData         = None
         self._testData          = None
-        self._targetColumn      = None
-        self._trainColumns      = None
+        # self._targetColumn      = None
+        # self._trainColumns      = None
         self._testImages        = None
         self._trainImages       = None
         self._imageTestArray    = None
         self._imageTrainArray   = None
 
         if okayToContinue:
-            fullTestFilename = self._basePath + self._rawTestFile
+            fullTestFilename = fs.CreateFilePath(self._rawTestFile)
             if os.path.exists(fullTestFilename) is False:
                 okayToContinue = False
                 print("File", fullTestFilename, "does not exist")
-            fullTrainFilename = self._basePath + self._rawTrainFile
+            fullTrainFilename = fs.CreateFilePath(self._rawTrainFile)
             if os.path.exists(fullTrainFilename) is False:
                 okayToContinue = False
                 print("File", fullTrainFilename, "does not exist")
 
         if okayToContinue:
-            self._testData  = pd.read_csv(fullTestFilename)
-            self._trainData = pd.read_csv(fullTrainFilename)
-            okayToContinue  = True if self._testData.empty is False and self._trainData.empty is False else False 
+            self._testData = Base(pd.read_csv(fullTestFilename))
+            self._trainData = Base(pd.read_csv(fullTrainFilename))
+            okayToContinue  = True if self._testData._dataSet.empty is False and self._trainData._dataSet.empty is False else False 
 
         if okayToContinue:
-            self._targetColumn  = "label"
-            self._trainColumns  = self._trainData.drop([self._targetColumn], axis=1).columns
-            okayToContinue      = True if self._trainColumns is not None else False 
+            okayToContinue = self._testData.CreateTrainAndTargetColumns(targetColumns=["label"])
+
+        if okayToContinue:
+            okayToContinue = self._trainData.CreateTrainAndTargetColumns(targetColumns=["label"])
 
         # Organize into reshaped datasets
         if okayToContinue:
-            temp = math.sqrt(self._trainData[self._trainColumns].shape[1])
+            temp = math.sqrt(self._trainData._dataSet[self._trainData._trainColumns].shape[1])
             if math.remainder(temp,1) == 0.0:
                 temp        = int(temp)
                 newShape    = (temp, temp)
@@ -76,6 +75,7 @@ class xASLHandler():
                 print("Error in reading data")
                 okayToContinue = False
             
+        # Get the image arrays for test and train data 
         if okayToContinue:
             self._imageTestArray    = fLib.Load(self._testCache)
             self._imageTrainArray   = fLib.Load(self._trainCache)
@@ -100,6 +100,10 @@ class xASLHandler():
                 loadImageTestArrayThread.join()
 
             okayToContinue = True if self._imageTestArray is not None and self._imageTrainArray is not None else False 
+
+        # Initialize the model 
+        if okayToContinue: 
+            pass 
         
         if okayToContinue is False:
             raise InitError(type(self))
@@ -131,10 +135,12 @@ class xASLHandler():
     def Run(self):
         """
         TODO create model 
+        
+        To Plot
+        ------
+        plt.imshow(self._imageTestArray[i])
         """
-        print(self._imageTestArray)
-        plt.imshow(self._imageTestArray[0])
-        plt.show()
+        print(self._imageTestArray.shape)
 
 class Project():
     """
