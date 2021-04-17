@@ -28,6 +28,36 @@ class xASLHandler():
     _testCache = "testImages.cache"
     _trainCache = "trainImages.cache"
 
+    # Label Mapping 
+    _labelDictionary = {
+        0 : "A",
+        1 : "B", 
+        2 : "C", 
+        3 : "D", 
+        4 : "E", 
+        5 : "F", 
+        6 : "G", 
+        7 : "H", 
+        8 : "I", 
+        9 : "J", 
+        10 : "K", 
+        11 : "L", 
+        12 : "M", 
+        13 : "N", 
+        14 : "O", 
+        15 : "P",
+        16 : "Q", 
+        17 : "R", 
+        18 : "S", 
+        19 : "T", 
+        20 : "U", 
+        21 : "V", 
+        22 : "W", 
+        23 : "X", 
+        24 : "Y", 
+        25 : "Z"
+    }
+
     def __init__(self) -> None:
         okayToContinue      = True 
         fullTestFilename    = None
@@ -37,12 +67,11 @@ class xASLHandler():
 
         self._trainData         = None
         self._testData          = None
-        # self._targetColumn      = None
-        # self._trainColumns      = None
         self._testImages        = None
         self._trainImages       = None
         self._imageTestArray    = None
         self._imageTrainArray   = None
+        self._model             = None 
 
         if okayToContinue:
             fullTestFilename = fs.CreateFilePath(self._rawTestFile)
@@ -140,7 +169,11 @@ class xASLHandler():
         ------
         plt.imshow(self._imageTestArray[i])
         """
-        print(self._imageTestArray.shape)
+        index = 4
+        print(self._labelDictionary[int(self._testData._dataSet[self._testData._targetColumns].loc[index])])
+        plt.imshow(self._imageTestArray[index])
+        plt.show()
+        
 
 class Project():
     """
