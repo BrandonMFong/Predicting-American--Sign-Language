@@ -5,10 +5,14 @@ import pandas as pd
 import sys 
 from atpbar import atpbar
 from sys import platform 
+from datetime import datetime
 
 fsSeparator = "\\" if platform == "win32" else "/"
 
 class Logger():
+    """
+    Must declare at each 
+    """
     PINK = '\033[95m'
     OKBLUE = '\033[94m'
     OKGREEN = '\033[92m'
@@ -16,12 +20,29 @@ class Logger():
     FAIL = '\033[91m'
     ENDC = '\033[0m'
 
-    def Fatal(*args,**kargs):
-        print("fatal:", *args, **kargs)
-    def Error(*args,**kargs):
-        print("error:", *args, **kargs)
-    def Write(*args,**kargs):
-        print(*args,**kargs)
+    def __init__(self,scriptName=None) -> None:
+        if scriptName is None: 
+            self._header = "{date} - {logType}" 
+        else: 
+            self._header = scriptName + ": {date} - {logType}"
+        self._datetimeFormat = "%d/%m/%Y %H:%M:%S"
+
+    def Fatal(self,*args,**kargs):
+        self._header = self._header.format(date=datetime.now().strftime(self._datetimeFormat), logType="fatal:")
+        print(self._header, *args, **kargs)
+
+    def Error(self,*args,**kargs):
+        self._header = self._header.format(date=datetime.now().strftime(self._datetimeFormat), logType="error:")
+        print(self._header, *args, **kargs)
+
+    def Write(self,*args,**kargs):
+        self._header = "{scriptName}: {date}:"
+        self._header = self._header.format(date=datetime.now().strftime(self._datetimeFormat))
+        print(self._header,*args,**kargs)
+
+    def Except(self,*args,**kargs):
+        self._header = self._header.format(date=datetime.now().strftime(self._datetimeFormat), logType="exception:")
+        print(self._header, *args, **kargs)
 
 class Base():
     """

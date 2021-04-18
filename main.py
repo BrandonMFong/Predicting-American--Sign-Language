@@ -7,7 +7,7 @@ from    atpbar              import atpbar
 from    os                  import path
 from    Library             import FunctionLibrary  as fLib
 from    Library             import FileSystem       as fs 
-from    Library             import Logger           as log
+from    Library             import Logger 
 from    Library             import InitError
 from    Library             import Base
 import  pandas              as pd 
@@ -18,6 +18,8 @@ import  os
 import  math
 import  threading
 import  pickle
+
+log = Logger(scriptName=__file__)
 
 class xASLHandler():
 
@@ -143,8 +145,7 @@ class xASLHandler():
             temp = math.sqrt(len(self._trainData._trainColumns))
             if math.remainder(temp,1) == 0.0:
                 temp            = int(temp)
-                # inputShapeModel = (temp, temp, 1)
-                inputShapeModel = (temp, temp)
+                inputShapeModel = (temp, temp, 1)
             else:
                 log.Error("Incompatable size for input images.  Total pixels for dataset:", len(self._trainData._trainColumns))
                 okayToContinue = False
@@ -152,7 +153,6 @@ class xASLHandler():
         # Initialize the model 
         if okayToContinue:
             self._model = keras.Sequential()
-            # inputShapeModel = (28,28,1)
             try:
                 outputShapeModel = len(self._labelDictionary) - 2 # Not include J or Z
                 self._model.add(keras.layers.Conv2D(32,(3,3),padding=self._defaultPaddingForModel,input_shape=inputShapeModel,activation=keras.activations.relu))
@@ -169,13 +169,30 @@ class xASLHandler():
                 self._model.add(keras.layers.Dense(outputShapeModel,activation=keras.activations.softmax))
             except TypeError as e:
                 log.Fatal("Could not build keras model")
-                log.Fatal("Exception message:\n", e)
+                log.Except(e)
                 okayToContinue = False
             except ValueError as e:
                 log.Fatal("Could not build keras model")
-                log.Fatal("Exception message:", e)
+                log.Except(e)
                 okayToContinue = False
-            
+            except Exception as e:
+                log.Fatal("Unknown exception")
+                log.Except(e)
+                okayToContinue = False
+        
+        # Compile the model 
+        if okayToContinue:
+            try:
+                self._model.compile(optimizer='adam',loss='categorical_crossentropy',metrics='accuracy')
+            except ValueError as e:
+                log.Fatal("Could not compile keras model")
+                log.Except(e)
+                okayToContinue = False
+            except Exception as e:
+                log.Fatal("Unknown exception")
+                log.Except(e)
+                okayToContinue = False
+
         if okayToContinue is False:
             raise InitError(type(self))
 
