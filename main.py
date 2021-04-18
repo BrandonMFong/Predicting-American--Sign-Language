@@ -143,7 +143,8 @@ class xASLHandler():
             temp = math.sqrt(len(self._trainData._trainColumns))
             if math.remainder(temp,1) == 0.0:
                 temp            = int(temp)
-                inputShapeModel = (temp, temp, 1)
+                # inputShapeModel = (temp, temp, 1)
+                inputShapeModel = (temp, temp)
             else:
                 log.Error("Incompatable size for input images.  Total pixels for dataset:", len(self._trainData._trainColumns))
                 okayToContinue = False
@@ -152,20 +153,29 @@ class xASLHandler():
         if okayToContinue:
             self._model = keras.Sequential()
             # inputShapeModel = (28,28,1)
-            outputShapeModel = len(self._labelDictionary) - 2 # Not include J or Z
-            self._model.add(keras.layers.Conv2D(32,(3,3),padding=self._defaultPaddingForModel,input_shape=inputShapeModel,activation=keras.activations.relu))
-            self._model.add(keras.layers.MaxPool2D((2,2)))
+            try:
+                outputShapeModel = len(self._labelDictionary) - 2 # Not include J or Z
+                self._model.add(keras.layers.Conv2D(32,(3,3),padding=self._defaultPaddingForModel,input_shape=inputShapeModel,activation=keras.activations.relu))
+                self._model.add(keras.layers.MaxPool2D((2,2)))
 
-            self._model.add(keras.layers.Conv2D(64,(3,3),padding=self._defaultPaddingForModel,activation=keras.activations.relu))
-            self._model.add(keras.layers.MaxPool2D((2,2)))
+                self._model.add(keras.layers.Conv2D(64,(3,3),padding=self._defaultPaddingForModel,activation=keras.activations.relu))
+                self._model.add(keras.layers.MaxPool2D((2,2)))
 
-            self._model.add(keras.layers.Conv2D(128,(3,3),padding=self._defaultPaddingForModel,activation=keras.activations.relu))
-            self._model.add(keras.layers.MaxPool2D((2,2)))
+                self._model.add(keras.layers.Conv2D(128,(3,3),padding=self._defaultPaddingForModel,activation=keras.activations.relu))
+                self._model.add(keras.layers.MaxPool2D((2,2)))
 
-            self._model.add(keras.layers.Flatten())
-            self._model.add(keras.layers.Dense(512,activation=keras.activations.relu))
-            self._model.add(keras.layers.Dense(outputShapeModel,activation=keras.activations.softmax))
-        
+                self._model.add(keras.layers.Flatten())
+                self._model.add(keras.layers.Dense(512,activation=keras.activations.relu))
+                self._model.add(keras.layers.Dense(outputShapeModel,activation=keras.activations.softmax))
+            except TypeError as e:
+                log.Fatal("Could not build keras model")
+                log.Fatal("Exception message:\n", e)
+                okayToContinue = False
+            except ValueError as e:
+                log.Fatal("Could not build keras model")
+                log.Fatal("Exception message:", e)
+                okayToContinue = False
+            
         if okayToContinue is False:
             raise InitError(type(self))
 
