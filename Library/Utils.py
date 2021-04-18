@@ -52,7 +52,7 @@ class Base():
 
     def CreateTrainAndTargetColumns(self,targetColumns):
         """
-        TODO accept a list of targetcolumns 
+        Creates Train and Target column from targetColumns list variable 
         """
         result = True 
         if result:

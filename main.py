@@ -7,6 +7,7 @@ from    atpbar              import atpbar
 from    os                  import path
 from    Library             import FunctionLibrary  as fLib
 from    Library             import FileSystem       as fs 
+from    Library             import Logger           as log
 from    Library             import InitError
 from    Library             import Base
 import  pandas              as pd 
@@ -58,12 +59,19 @@ class xASLHandler():
         25 : "Z"
     }
 
+    # Specifically for this dataset for ASL 
+    _defaultTargetColumn = "label"
+
+    _defaultPaddingForModel = "same"
+
     def __init__(self) -> None:
         okayToContinue      = True 
         fullTestFilename    = None
         fullTrainFilename   = None
         temp                = None
         newShape            = None
+        inputShapeModel     = None 
+        outputShapeModel    = None
 
         self._trainData         = None
         self._testData          = None
@@ -89,10 +97,10 @@ class xASLHandler():
             okayToContinue  = True if self._testData._dataSet.empty is False and self._trainData._dataSet.empty is False else False 
 
         if okayToContinue:
-            okayToContinue = self._testData.CreateTrainAndTargetColumns(targetColumns=["label"])
+            okayToContinue = self._testData.CreateTrainAndTargetColumns(targetColumns=[self._defaultTargetColumn])
 
         if okayToContinue:
-            okayToContinue = self._trainData.CreateTrainAndTargetColumns(targetColumns=["label"])
+            okayToContinue = self._trainData.CreateTrainAndTargetColumns(targetColumns=[self._defaultTargetColumn])
 
         # Organize into reshaped datasets
         if okayToContinue:
@@ -130,9 +138,33 @@ class xASLHandler():
 
             okayToContinue = True if self._imageTestArray is not None and self._imageTrainArray is not None else False 
 
-        # Initialize the model 
+        # Prepare variables for the Sequential model 
         if okayToContinue: 
-            pass 
+            temp = math.sqrt(len(self._trainData._trainColumns))
+            if math.remainder(temp,1) == 0.0:
+                temp            = int(temp)
+                inputShapeModel = (temp, temp, 1)
+            else:
+                log.Error("Incompatable size for input images.  Total pixels for dataset:", len(self._trainData._trainColumns))
+                okayToContinue = False
+
+        # Initialize the model 
+        if okayToContinue:
+            self._model = keras.Sequential()
+            # inputShapeModel = (28,28,1)
+            outputShapeModel = len(self._labelDictionary) - 2 # Not include J or Z
+            self._model.add(keras.layers.Conv2D(32,(3,3),padding=self._defaultPaddingForModel,input_shape=inputShapeModel,activation=keras.activations.relu))
+            self._model.add(keras.layers.MaxPool2D((2,2)))
+
+            self._model.add(keras.layers.Conv2D(64,(3,3),padding=self._defaultPaddingForModel,activation=keras.activations.relu))
+            self._model.add(keras.layers.MaxPool2D((2,2)))
+
+            self._model.add(keras.layers.Conv2D(128,(3,3),padding=self._defaultPaddingForModel,activation=keras.activations.relu))
+            self._model.add(keras.layers.MaxPool2D((2,2)))
+
+            self._model.add(keras.layers.Flatten())
+            self._model.add(keras.layers.Dense(512,activation=keras.activations.relu))
+            self._model.add(keras.layers.Dense(outputShapeModel,activation=keras.activations.softmax))
         
         if okayToContinue is False:
             raise InitError(type(self))
