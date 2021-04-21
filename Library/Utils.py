@@ -35,6 +35,10 @@ class Logger():
         self._header = self._header.format(date=datetime.now().strftime(self._datetimeFormat), logType="error:")
         print(self._header, *args, **kargs)
 
+    def Warn(self,*args,**kargs):
+        self._header = self._header.format(date=datetime.now().strftime(self._datetimeFormat), logType="warning:")
+        print(self._header, *args, **kargs)
+
     def Write(self,*args,**kargs):
         self._header = "{scriptName}: {date}:"
         self._header = self._header.format(date=datetime.now().strftime(self._datetimeFormat))
@@ -115,6 +119,28 @@ class FileSystem():
 
     def CreateFilePath(relativePath):
         return sys.path[0] + fsSeparator + relativePath
+
+    def GetFileList(directoryPath):
+        """
+        Parameters
+        ----------------
+        - directoryPath: Directory path to files
+        """
+        status = True 
+        result = []
+        log = Logger()
+
+        if status: 
+            status = os.path.exists(directoryPath)
+            if status is False:
+                log.Warn("Directory", directoryPath, "does not exist")
+
+        if status: 
+            for file in os.listdir(directoryPath):
+                fullFilePath = directoryPath + "/" + file 
+                result.append(open(fullFilePath).read())
+
+        return result
         
 class InitError(Exception):
     """
