@@ -39,10 +39,10 @@ class Logger():
         self._header = self._header.format(date=datetime.now().strftime(self._datetimeFormat), logType="warning:")
         print(self._header, *args, **kargs)
 
-    def Write(self,*args,**kargs):
+    def Write(self,end=None,*args,**kargs):
         self._header = "{scriptName}: {date}:"
         self._header = self._header.format(date=datetime.now().strftime(self._datetimeFormat))
-        print(self._header,*args,**kargs)
+        print(self._header,*args,**kargs,end=end)
 
     def Except(self,*args,**kargs):
         self._header = self._header.format(date=datetime.now().strftime(self._datetimeFormat), logType="exception:")
@@ -55,8 +55,11 @@ class Base():
 
     _reshapeFacialKeyImage = (96,96)
 
-    def __init__(self,dataSet=None) -> None:
+    def __init__(self,dataSet=None,task1DataSet=None,task2DataSet=None) -> None:
         
+        self._task1DataSet = None if task1DataSet is None else task1DataSet 
+        self._task2DataSet = None if task2DataSet is None else task2DataSet 
+
         # Data set var 
         if dataSet is None: 
             self._dataSet = pd.DataFrame()
@@ -96,20 +99,19 @@ class Base():
         for n in range(numComponents):
             self._pcaColumns.append("C{}".format(n))
 
-    def FitImageColumn(self,column=None):
+    def FitImageColumn(self,column):
         """
         Creates the appropriate object type for the image column for the Facial key points column
         """
         okayToContinue = True 
+        log = Logger()
         if okayToContinue:
-            column = self._targetColumns if column is None else column
-        if okayToContinue:
-            okayToContinue = column in self._dataSet
+            okayToContinue = column in self._dataSet.columns
             if okayToContinue is False:
-                # print(self.FitImageColumn.__name__,": Error: column", column, "does not exist in dataframe")
-                Logger.Error(self.FitImageColumn.__name__, ":column", column, "does not exist in dataframe")
+                log.Error(self.FitImageColumn.__name__, ": column", column, "does not exist in dataframe")
         if okayToContinue:
-            result = self._dataSet[column].apply(lambda image: np.fromstring(image, sep=" "))
+            # result = self._dataSet[column].apply(lambda image: np.fromstring(image, sep=" "))
+            result = self._dataSet[column].apply(lambda image: np.asarray(np.fromstring(image, sep=" ")).astype('float32'))
         if okayToContinue is False:
             result = None
 
