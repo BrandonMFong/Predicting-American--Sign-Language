@@ -22,6 +22,9 @@ import  pickle
 log = Logger(scriptName=__file__)
 
 class xASLHandler():
+    """
+    https://www.kaggle.com/sandeepbhogaraju/sign-language-identifier-100-accuracy-tf-model
+    """
 
     # Data
     _rawTestFile = "/data/test/sign.csv"
@@ -66,12 +69,15 @@ class xASLHandler():
 
     _defaultPaddingForModel = "same"
 
+    _testArrayName = "test"
+    _trainArrayName = "train"
+
     def __init__(self) -> None:
         okayToContinue      = True 
         fullTestFilename    = None
         fullTrainFilename   = None
         temp                = None
-        newShape            = None
+        # newShape            = None
         inputShapeModel     = None 
         outputShapeModel    = None
 
@@ -82,6 +88,7 @@ class xASLHandler():
         self._imageTestArray    = None
         self._imageTrainArray   = None
         self._model             = None 
+        self._reshapeValue      = None
 
         if okayToContinue:
             fullTestFilename = fs.CreateFilePath(self._rawTestFile)
@@ -108,8 +115,8 @@ class xASLHandler():
         if okayToContinue:
             temp = math.sqrt(self._trainData._dataSet[self._trainData._trainColumns].shape[1])
             if math.remainder(temp,1) == 0.0:
-                temp        = int(temp)
-                newShape    = (temp, temp)
+                temp                = int(temp)
+                self._reshapeValue  = (temp, temp)
             else:
                 print("Error in reading data")
                 okayToContinue = False
@@ -119,17 +126,16 @@ class xASLHandler():
             self._imageTestArray    = fLib.Load(self._testCache)
             self._imageTrainArray   = fLib.Load(self._trainCache)
 
-
+            # Test data
             if self._imageTestArray is None:
-                # Test
                 print("Image Test cache was not found, creating data...")
-                loadImageTestArrayThread = threading.Thread(target=self.LoadImageTestArrayOnThread, args=(newShape,))
+                loadImageTestArrayThread = threading.Thread(target=self.LoadImageArrayOnThread, args=(self._testArrayName,self._testData._dataSet))
                 loadImageTestArrayThread.start()
 
-            # Train
+            # Train data 
             if self._imageTrainArray is None:
                 print("Image Train cache was not found, creating data...")
-                loadImageTrainArrayThread = threading.Thread(target=self.LoadImageTrainArrayOnThread, args=(newShape,))
+                loadImageTrainArrayThread = threading.Thread(target=self.LoadImageArrayOnThread, args=(self._trainArrayName,self._trainData._dataSet))
                 loadImageTrainArrayThread.start()
 
             if self._imageTrainArray is None:
@@ -146,6 +152,7 @@ class xASLHandler():
             if math.remainder(temp,1) == 0.0:
                 temp            = int(temp)
                 inputShapeModel = (temp, temp, 1)
+                # inputShapeModel = (temp, temp)
             else:
                 log.Error("Incompatable size for input images.  Total pixels for dataset:", len(self._trainData._trainColumns))
                 okayToContinue = False
@@ -193,32 +200,62 @@ class xASLHandler():
                 log.Except(e)
                 okayToContinue = False
 
+        # Train the model 
+        if okayToContinue:
+            print(self._imageTrainArray.shape)
+            # self._model.fit(self._imageTrainArray)
+            self._model.summary()
+
         if okayToContinue is False:
             raise InitError(type(self))
 
-    def LoadImageTestArrayOnThread(self,newShape):
-        for i in atpbar(range(self._testData.shape[0]), name="Test Data"):
-            row = self._testData.iloc[i]
-            data = np.array(row[self._trainColumns])
-            reshapedData = data.reshape(newShape)
-            if self._imageTestArray is None:
-                self._imageTestArray = np.array([reshapedData])
-            else:
-                self._imageTestArray = np.concatenate((self._imageTestArray, [reshapedData]))
-        
-        fLib.Save(self._imageTestArray, self._testCache)
+    def LoadImageArrayOnThread(self,forArray,dataSet):
+        images = []
+        for i in atpbar(range(dataSet.shape[0]), name="{} Data".format(forArray)):
+            row     = dataSet.iloc[i]
+            image   = np.array_split(row[1:],28)
+            images.append(image)
 
-    def LoadImageTrainArrayOnThread(self,newShape):
-        for i in atpbar(range(self._trainData.shape[0]), name="Train Data"):
-            row = self._trainData.iloc[i]
-            data = np.array(row[self._trainColumns])
-            reshapedData = data.reshape(newShape)
-            if self._imageTrainArray is None:
-                self._imageTrainArray = np.array([reshapedData])
-            else:
-                self._imageTrainArray = np.concatenate((self._imageTrainArray, [reshapedData]))
+        if forArray == "train":
+            self._imageTrainArray = np.array(images)
+            self._imageTrainArray = np.expand_dims(self._imageTrainArray,axis=3)
+            fLib.Save(self._imageTrainArray, self._trainCache)
+        elif forArray == "test":
+            self._imageTestArray = np.array(images)
+            self._imageTestArray = np.expand_dims(self._imageTestArray,axis=3)
+            fLib.Save(self._imageTestArray, self._testCache)
+
+    # def LoadImageTestArrayOnThread(self,newShape):
+    #     images = []
+    #     for i in atpbar(range(self._testData.shape[0]), name="Test Data"):
+    #         row = self._testData.iloc[i]
+    #         # data = np.array(row[self._trainColumns])
+    #         # reshapedData = data.reshape(newShape)
+    #         # if self._imageTestArray is None:
+    #         #     self._imageTestArray = np.array([reshapedData])
+    #         # else:
+    #         #     self._imageTestArray = np.concatenate((self._imageTestArray, [reshapedData]))
+    #         image = np.array_split(row[1][1:],28)
+    #         images.append(image)
         
-        fLib.Save(self._imageTrainArray, self._trainCache)
+    #     fLib.Save(self._imageTestArray, self._testCache)
+
+    # def LoadImageTrainArrayOnThread(self,newShape):
+    #     images = []
+    #     for i in atpbar(range(self._trainData.shape[0]), name="Train Data"):
+    #         row = self._trainData.iloc[i]
+    #         # data = np.array(row[self._trainColumns])
+    #         # reshapedData = data.reshape(newShape)
+    #         # if self._imageTrainArray is None:
+    #         #     self._imageTrainArray = np.array([reshapedData])
+    #         # else:
+    #         #     self._imageTrainArray = np.concatenate((self._imageTrainArray, [reshapedData]))
+    #         image = np.array_split(row[1][1:],28)
+    #         images.append(image)
+
+    #     self._imageTrainArray = np.array(images)
+        
+    #     fLib.Save(self._imageTrainArray, self._trainCache)
 
     def Run(self):
         """
