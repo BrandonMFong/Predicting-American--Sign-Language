@@ -2,14 +2,15 @@
 # 3/30/2021
 # Final Project
 
-from    tensorflow          import keras
-from    atpbar              import atpbar
-from    os                  import path
-from    Library             import FunctionLibrary  as fLib
-from    Library             import FileSystem       as fs 
-from    Library             import Logger 
-from    Library             import InitError
-from    Library             import Base
+from    tensorflow                              import keras
+from    atpbar                                  import atpbar
+from    Library                                 import FunctionLibrary  as fLib
+from    Library                                 import FileSystem       as fs 
+from    Library                                 import Logger 
+from    Library                                 import InitError
+from    Library                                 import Base
+from    tensorflow.keras.preprocessing.image    import ImageDataGenerator
+from    sklearn.model_selection                 import train_test_split
 import  pandas              as pd 
 import  numpy               as np
 import  matplotlib.pyplot   as plt 
@@ -17,7 +18,6 @@ import  sys
 import  os
 import  math
 import  threading
-import  pickle
 
 log = Logger(scriptName=__file__)
 
@@ -162,18 +162,30 @@ class xASLHandler():
             self._model = keras.Sequential()
             try:
                 outputShapeModel = len(self._labelDictionary) - 2 # Not include J or Z
-                self._model.add(keras.layers.Conv2D(32,(3,3),padding=self._defaultPaddingForModel,input_shape=inputShapeModel,activation=keras.activations.relu))
-                self._model.add(keras.layers.MaxPool2D((2,2)))
+                # self._model.add(keras.layers.Conv2D(32,(3,3),padding=self._defaultPaddingForModel,input_shape=inputShapeModel,activation=keras.activations.relu))
+                # self._model.add(keras.layers.MaxPool2D((2,2)))
 
-                self._model.add(keras.layers.Conv2D(64,(3,3),padding=self._defaultPaddingForModel,activation=keras.activations.relu))
-                self._model.add(keras.layers.MaxPool2D((2,2)))
+                # self._model.add(keras.layers.Conv2D(64,(3,3),padding=self._defaultPaddingForModel,activation=keras.activations.relu))
+                # self._model.add(keras.layers.MaxPool2D((2,2)))
 
-                self._model.add(keras.layers.Conv2D(128,(3,3),padding=self._defaultPaddingForModel,activation=keras.activations.relu))
-                self._model.add(keras.layers.MaxPool2D((2,2)))
+                # self._model.add(keras.layers.Conv2D(128,(3,3),padding=self._defaultPaddingForModel,activation=keras.activations.relu))
+                # self._model.add(keras.layers.MaxPool2D((2,2)))
 
+                # self._model.add(keras.layers.Flatten())
+                # self._model.add(keras.layers.Dense(512,activation=keras.activations.relu))
+                # self._model.add(keras.layers.Dense(outputShapeModel,activation=keras.activations.softmax))
+
+                self._model.add(keras.layers.Conv2D(16, (3,3), padding='same', activation=keras.activations.relu,input_shape=(28, 28, 1)))
+                self._model.add(keras.layers.MaxPooling2D((2,2)))
+                self._model.add(keras.layers.Conv2D(32, (3,3), padding='same', activation=keras.activations.relu))
+                self._model.add(keras.layers.MaxPooling2D((2,2)))
+                self._model.add(keras.layers.Conv2D(64, (3,3), padding='same', activation=keras.activations.relu))
+                self._model.add(keras.layers.MaxPooling2D((2,2)))
+                self._model.add(keras.layers.Conv2D(128, (3,3), padding='same', activation=keras.activations.relu))
+                self._model.add(keras.layers.MaxPooling2D((2,2)))
                 self._model.add(keras.layers.Flatten())
-                self._model.add(keras.layers.Dense(512,activation=keras.activations.relu))
-                self._model.add(keras.layers.Dense(outputShapeModel,activation=keras.activations.softmax))
+                self._model.add(keras.layers.Dense(64, activation=keras.activations.relu))
+                self._model.add(keras.layers.Dense(outputShapeModel, activation=keras.activations.softmax))
             except TypeError as e:
                 log.Fatal("Could not build keras model")
                 log.Except(e)
@@ -191,6 +203,7 @@ class xASLHandler():
         if okayToContinue:
             try:
                 self._model.compile(optimizer='adam',loss='categorical_crossentropy',metrics='accuracy')
+                self._model.summary()
             except ValueError as e:
                 log.Fatal("Could not compile keras model")
                 log.Except(e)
@@ -202,9 +215,34 @@ class xASLHandler():
 
         # Train the model 
         if okayToContinue:
-            print(self._imageTrainArray.shape)
-            # self._model.fit(self._imageTrainArray)
-            self._model.summary()
+            X_train = self._imageTrainArray.astype(float)
+            Y_train = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
+            X_test  = self._imageTestArray.astype(float)
+            Y_test  = self._testData._dataSet[self._testData._targetColumns].astype(float)
+
+            X_train, X_validate, Y_train, Y_validate = train_test_split(X_train, Y_train, test_size = 0.2, random_state = 12345)
+            
+            train_datagen = ImageDataGenerator(
+                                rescale=1/255,rotation_range=45, width_shift_range=0.25,
+                                height_shift_range=0.15,shear_range=0.15, zoom_range=0.2, 
+                                fill_mode='nearest'
+                            )
+
+            test_datagen    = ImageDataGenerator(rescale=1/255)
+            valid_datagen   = ImageDataGenerator(rescale=1/255)
+            train_generator = train_datagen.flow(X_train, Y_train, batch_size=32)
+            test_generator  =  test_datagen.flow(X_test,Y_test,batch_size=32)
+            valid_generator = valid_datagen.flow(X_validate,Y_validate,batch_size=32)
+            
+            self._model.fit(train_generator,
+                epochs=500,
+                validation_data=valid_generator,
+                callbacks = [
+                keras.callbacks.EarlyStopping(monitor='loss', patience=10),
+                keras.callbacks.ModelCheckpoint(filepath='/kaggle/working/',
+                monitor='val_accuracy',
+                save_best_only=True)
+            ])
 
         if okayToContinue is False:
             raise InitError(type(self))
