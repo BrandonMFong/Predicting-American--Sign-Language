@@ -3,9 +3,13 @@ import pickle
 import numpy as np 
 import pandas as pd 
 import sys 
+import math 
 from atpbar import atpbar
 from sys import platform 
 from datetime import datetime
+import tensorflow as tf
+
+from tensorflow.python.autograph.impl.api import convert
 
 fsSeparator = "\\" if platform == "win32" else "/"
 
@@ -69,6 +73,7 @@ class Base():
         # Train and Target Columns
         self._trainColumns = None 
         self._targetColumns = None 
+        self._log = Logger()
 
         # PCA Column variable
         self._pcaColumns = []
@@ -78,49 +83,62 @@ class Base():
         result = round(result)
         return result
 
-    def CreateTrainAndTargetColumns(self,targetColumns):
+    def CreateTrainAndTargetColumns(self,targetColumns: list) -> bool:
         """
         Creates Train and Target column from targetColumns list variable 
         """
         result = True 
         if result:
-            result = type(targetColumns) == list 
-            if result is False: 
-                Logger.Fatal("variable target column is not a list")
-        if result:
-            result = True if self._dataSet.empty is False else False
+            if self._dataSet.empty:
+                result = False 
         if result:
             self._targetColumns = targetColumns
             self._trainColumns = self._dataSet.drop(self._targetColumns, axis=1).columns
-            result = True if len(self._trainColumns) != 0 else False 
+            if len(self._trainColumns) == 0 or len(self._targetColumns) == 0:
+                result = False  
         return result
 
     def CreatePCAColumns(self,numComponents):
         for n in range(numComponents):
             self._pcaColumns.append("C{}".format(n))
 
-    def FitImageColumn(self,column):
+    def FitImageColumn(self,column: str,convertToTensor=False):
         """
         Creates the appropriate object type for the image column for the Facial key points column
         """
         okayToContinue = True 
-        log = Logger()
         if okayToContinue:
             okayToContinue = column in self._dataSet.columns
             if okayToContinue is False:
-                log.Error(self.FitImageColumn.__name__, ": column", column, "does not exist in dataframe")
+                self._log.Error(self.FitImageColumn.__name__, ": column", column, "does not exist in dataframe")
         if okayToContinue:
-            # result = self._dataSet[column].apply(lambda image: np.fromstring(image, sep=" "))
-            result = self._dataSet[column].apply(lambda image: np.asarray(np.fromstring(image, sep=" ")).astype('float32'))
+            if convertToTensor:
+                result = self._dataSet[column].apply(
+                    lambda image: 
+                        tf.convert_to_tensor(np.asarray(np.fromstring(image, sep=" ")).astype('float32'))
+                )
+            else:
+                result = self._dataSet[column].apply(lambda image: np.asarray(np.fromstring(image, sep=" ")).astype('float32'))
         if okayToContinue is False:
             result = None
 
         return result 
 
+    def GetNewShape(self,length: int):
+        result = () 
+        square = math.sqrt(length)
+        if math.remainder(square,1) == 0.0:
+            square = int(square)
+            result = (square, square)
+        else:
+            self._log.Error("input size not acceptable:", length)
+            result = None 
+        return result
+
 class FileSystem():
 
     def CreateFilePath(relativePath):
-        return sys.path[0] + fsSeparator + relativePath
+        return os.path.abspath(relativePath)
 
     def GetFileList(directoryPath):
         """
@@ -184,6 +202,7 @@ class FunctionLibrary():
         sum_y = np.sum(arr[:, 1])
         return sum_x/length, sum_y/length
 
+    @staticmethod
     def Load(filename):
         """
         Loads save variable in cache file if exists
@@ -194,6 +213,15 @@ class FunctionLibrary():
             result = pickle.load(open(filename, "rb"))[0]
         return result
 
+    @staticmethod 
+    def LoadWithCallback(filename, callback):
+        result = None 
+        if os.path.exists(filename):
+            result = pickle.load(open(filename, "rb"))[0]
+            
+        callback(result)
+
+    @staticmethod
     def Save(variable, filename):
         """
         Saves variable into cache file in the current directory 

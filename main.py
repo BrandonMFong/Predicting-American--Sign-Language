@@ -27,8 +27,8 @@ class xASLHandler():
     """
 
     # Data
-    _rawTestFile = "/data/test/sign.csv"
-    _rawTrainFile = "/data/train/sign.csv"
+    _rawTestFile = "data/test/sign.csv"
+    _rawTrainFile = "data/train/sign.csv"
 
     # Cache files
     _testCache = "testImages.cache"
@@ -72,7 +72,7 @@ class xASLHandler():
     _testArrayName = "test"
     _trainArrayName = "train"
 
-    def __init__(self) -> None:
+    def __init__(self,epochs=10) -> None:
         okayToContinue      = True 
         fullTestFilename    = None
         fullTrainFilename   = None
@@ -89,6 +89,7 @@ class xASLHandler():
         self._imageTrainArray   = None
         self._model             = None 
         self._reshapeValue      = None
+        self._epochs            = epochs
 
         if okayToContinue:
             fullTestFilename = fs.CreateFilePath(self._rawTestFile)
@@ -150,8 +151,8 @@ class xASLHandler():
         if okayToContinue: 
             temp = math.sqrt(len(self._trainData._trainColumns))
             if math.remainder(temp,1) == 0.0:
-                temp            = int(temp)
-                inputShapeModel = (temp, temp, 1)
+                temp                = int(temp)
+                self._reshapeValue  = (temp, temp, 1)
                 # inputShapeModel = (temp, temp)
             else:
                 log.Error("Incompatable size for input images.  Total pixels for dataset:", len(self._trainData._trainColumns))
@@ -162,20 +163,9 @@ class xASLHandler():
             self._model = keras.Sequential()
             try:
                 outputShapeModel = len(self._labelDictionary) - 2 # Not include J or Z
-                # self._model.add(keras.layers.Conv2D(32,(3,3),padding=self._defaultPaddingForModel,input_shape=inputShapeModel,activation=keras.activations.relu))
-                # self._model.add(keras.layers.MaxPool2D((2,2)))
 
-                # self._model.add(keras.layers.Conv2D(64,(3,3),padding=self._defaultPaddingForModel,activation=keras.activations.relu))
-                # self._model.add(keras.layers.MaxPool2D((2,2)))
-
-                # self._model.add(keras.layers.Conv2D(128,(3,3),padding=self._defaultPaddingForModel,activation=keras.activations.relu))
-                # self._model.add(keras.layers.MaxPool2D((2,2)))
-
-                # self._model.add(keras.layers.Flatten())
-                # self._model.add(keras.layers.Dense(512,activation=keras.activations.relu))
-                # self._model.add(keras.layers.Dense(outputShapeModel,activation=keras.activations.softmax))
-
-                self._model.add(keras.layers.Conv2D(16, (3,3), padding='same', activation=keras.activations.relu,input_shape=(28, 28, 1)))
+                # self._model.add(keras.layers.Conv2D(16, (3,3), padding='same', activation=keras.activations.relu,input_shape=(28, 28, 1)))
+                self._model.add(keras.layers.Conv2D(16, (3,3), padding='same', activation=keras.activations.relu,input_shape=self._reshapeValue))
                 self._model.add(keras.layers.MaxPooling2D((2,2)))
                 self._model.add(keras.layers.Conv2D(32, (3,3), padding='same', activation=keras.activations.relu))
                 self._model.add(keras.layers.MaxPooling2D((2,2)))
@@ -231,18 +221,21 @@ class xASLHandler():
             test_datagen    = ImageDataGenerator(rescale=1/255)
             valid_datagen   = ImageDataGenerator(rescale=1/255)
             train_generator = train_datagen.flow(X_train, Y_train, batch_size=32)
-            test_generator  =  test_datagen.flow(X_test,Y_test,batch_size=32)
+            test_generator  = test_datagen.flow(X_test,Y_test,batch_size=32)
             valid_generator = valid_datagen.flow(X_validate,Y_validate,batch_size=32)
             
             self._model.fit(train_generator,
-                epochs=500,
+                epochs=self._epochs,
                 validation_data=valid_generator,
                 callbacks = [
-                keras.callbacks.EarlyStopping(monitor='loss', patience=10),
-                keras.callbacks.ModelCheckpoint(filepath='/kaggle/working/',
-                monitor='val_accuracy',
-                save_best_only=True)
-            ])
+                    keras.callbacks.EarlyStopping(monitor='loss', patience=10),
+                    keras.callbacks.ModelCheckpoint(
+                        filepath='/kaggle/working/',
+                        monitor='val_accuracy',
+                        save_best_only=True
+                    )
+                ]
+            )
 
         if okayToContinue is False:
             raise InitError(type(self))
@@ -263,38 +256,6 @@ class xASLHandler():
             self._imageTestArray = np.expand_dims(self._imageTestArray,axis=3)
             fLib.Save(self._imageTestArray, self._testCache)
 
-    # def LoadImageTestArrayOnThread(self,newShape):
-    #     images = []
-    #     for i in atpbar(range(self._testData.shape[0]), name="Test Data"):
-    #         row = self._testData.iloc[i]
-    #         # data = np.array(row[self._trainColumns])
-    #         # reshapedData = data.reshape(newShape)
-    #         # if self._imageTestArray is None:
-    #         #     self._imageTestArray = np.array([reshapedData])
-    #         # else:
-    #         #     self._imageTestArray = np.concatenate((self._imageTestArray, [reshapedData]))
-    #         image = np.array_split(row[1][1:],28)
-    #         images.append(image)
-        
-    #     fLib.Save(self._imageTestArray, self._testCache)
-
-    # def LoadImageTrainArrayOnThread(self,newShape):
-    #     images = []
-    #     for i in atpbar(range(self._trainData.shape[0]), name="Train Data"):
-    #         row = self._trainData.iloc[i]
-    #         # data = np.array(row[self._trainColumns])
-    #         # reshapedData = data.reshape(newShape)
-    #         # if self._imageTrainArray is None:
-    #         #     self._imageTrainArray = np.array([reshapedData])
-    #         # else:
-    #         #     self._imageTrainArray = np.concatenate((self._imageTrainArray, [reshapedData]))
-    #         image = np.array_split(row[1][1:],28)
-    #         images.append(image)
-
-    #     self._imageTrainArray = np.array(images)
-        
-    #     fLib.Save(self._imageTrainArray, self._trainCache)
-
     def Run(self):
         """
         TODO create model 
@@ -305,8 +266,11 @@ class xASLHandler():
         """
         index = 4
         print(self._labelDictionary[int(self._testData._dataSet[self._testData._targetColumns].loc[index])])
-        plt.imshow(self._imageTestArray[index])
-        plt.show()
+        # print(self._imageTestArray[int(self._testData._dataSet[self._testData._targetColumns].loc[index])])
+        preds = self._model.predict(self._imageTestArray)
+        print(preds[index])
+        # plt.imshow(self._imageTestArray[index])
+        # plt.show()
         
 
 class Project():
@@ -393,7 +357,7 @@ class Project():
     _basePath = sys.path[0]
 
     def __init__(self) -> None:
-        self._signLangHandler = xASLHandler()
+        self._signLangHandler = xASLHandler(1)
     
     def Do(self):
         self._signLangHandler.Run()
