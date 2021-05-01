@@ -18,6 +18,7 @@ import  sys
 import  os
 import  math
 import  threading
+import  cv2
 
 log = Logger(scriptName=__file__)
 
@@ -90,6 +91,12 @@ class xASLHandler():
         self._model             = None 
         self._reshapeValue      = None
         self._epochs            = epochs
+        self._trainGenerator    = None
+        self._testGenerator     = None
+        self._xTrain            = None
+        self._yTrain            = None 
+        self._xTest             = None 
+        self._yTest             = None 
 
         if okayToContinue:
             fullTestFilename = fs.CreateFilePath(self._rawTestFile)
@@ -192,7 +199,7 @@ class xASLHandler():
         # Compile the model 
         if okayToContinue:
             try:
-                self._model.compile(optimizer='adam',loss='categorical_crossentropy',metrics='accuracy')
+                self._model.compile(optimizer='SGD', loss='categorical_crossentropy', metrics = ['accuracy'])
                 self._model.summary()
             except ValueError as e:
                 log.Fatal("Could not compile keras model")
@@ -205,26 +212,27 @@ class xASLHandler():
 
         # Train the model 
         if okayToContinue:
-            X_train = self._imageTrainArray.astype(float)
-            Y_train = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
-            X_test  = self._imageTestArray.astype(float)
-            Y_test  = self._testData._dataSet[self._testData._targetColumns].astype(float)
+            self._xTrain    = self._imageTrainArray.astype(float)
+            self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
+            self._xTest     = self._imageTestArray.astype(float)
+            self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
 
-            X_train, X_validate, Y_train, Y_validate = train_test_split(X_train, Y_train, test_size = 0.2, random_state = 12345)
+            self._xTrain, X_validate, self._yTrain, Y_validate = train_test_split(self._xTrain, self._yTrain, test_size = 0.2, random_state = 12345)
             
             train_datagen = ImageDataGenerator(
-                                rescale=1/255,rotation_range=45, width_shift_range=0.25,
-                                height_shift_range=0.15,shear_range=0.15, zoom_range=0.2, 
-                                fill_mode='nearest'
-                            )
+                rescale=1/255,rotation_range=45, width_shift_range=0.25,
+                height_shift_range=0.15,shear_range=0.15, zoom_range=0.2, 
+                fill_mode='nearest'
+            )
+            test_datagen            = ImageDataGenerator(rescale=1/255)
+            valid_datagen           = ImageDataGenerator(rescale=1/255)
 
-            test_datagen    = ImageDataGenerator(rescale=1/255)
-            valid_datagen   = ImageDataGenerator(rescale=1/255)
-            train_generator = train_datagen.flow(X_train, Y_train, batch_size=32)
-            test_generator  = test_datagen.flow(X_test,Y_test,batch_size=32)
-            valid_generator = valid_datagen.flow(X_validate,Y_validate,batch_size=32)
+            self._trainGenerator    = train_datagen.flow(self._xTrain, self._yTrain, batch_size=32)
+            self._testGenerator     = test_datagen.flow(self._xTest,self._yTest,batch_size=32)
+            valid_generator         = valid_datagen.flow(X_validate,Y_validate,batch_size=32)
             
-            self._model.fit(train_generator,
+            self._model.fit(
+                self._trainGenerator,
                 epochs=self._epochs,
                 validation_data=valid_generator,
                 callbacks = [
@@ -263,15 +271,34 @@ class xASLHandler():
         To Plot
         ------
         plt.imshow(self._imageTestArray[i])
-        """
+        """# define a video capture object
+        vid = cv2.VideoCapture(0)
+        
+        while(True):
+            
+            # Capture the video frame
+            # by frame
+            ret, frame = vid.read()
+        
+            # Display the resulting frame
+            cv2.imshow('frame', frame)
+            
+            # the 'q' button is set as the
+            # quitting button you may use any
+            # desired button of your choice
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        
+        # After the loop release the cap object
+        vid.release()
+        # Destroy all the windows
+        cv2.destroyAllWindows()
+
+    def Test(self):
         index = 4
         print(self._labelDictionary[int(self._testData._dataSet[self._testData._targetColumns].loc[index])])
-        # print(self._imageTestArray[int(self._testData._dataSet[self._testData._targetColumns].loc[index])])
-        preds = self._model.predict(self._imageTestArray)
-        print(preds[index])
-        # plt.imshow(self._imageTestArray[index])
-        # plt.show()
-        
+        preds = self._model.predict(self._xTest)
+        print(preds)
 
 class Project():
     """
