@@ -211,39 +211,39 @@ class xASLHandler():
                 okayToContinue = False
 
         # Train the model 
-        if okayToContinue:
-            self._xTrain    = self._imageTrainArray.astype(float)
-            self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
-            self._xTest     = self._imageTestArray.astype(float)
-            self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
+        # if okayToContinue:
+        #     self._xTrain    = self._imageTrainArray.astype(float)
+        #     self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
+        #     self._xTest     = self._imageTestArray.astype(float)
+        #     self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
 
-            self._xTrain, X_validate, self._yTrain, Y_validate = train_test_split(self._xTrain, self._yTrain, test_size = 0.2, random_state = 12345)
+        #     self._xTrain, X_validate, self._yTrain, Y_validate = train_test_split(self._xTrain, self._yTrain, test_size = 0.2, random_state = 12345)
             
-            train_datagen = ImageDataGenerator(
-                rescale=1/255,rotation_range=45, width_shift_range=0.25,
-                height_shift_range=0.15,shear_range=0.15, zoom_range=0.2, 
-                fill_mode='nearest'
-            )
-            test_datagen            = ImageDataGenerator(rescale=1/255)
-            valid_datagen           = ImageDataGenerator(rescale=1/255)
+        #     train_datagen = ImageDataGenerator(
+        #         rescale=1/255,rotation_range=45, width_shift_range=0.25,
+        #         height_shift_range=0.15,shear_range=0.15, zoom_range=0.2, 
+        #         fill_mode='nearest'
+        #     )
+        #     test_datagen            = ImageDataGenerator(rescale=1/255)
+        #     valid_datagen           = ImageDataGenerator(rescale=1/255)
 
-            self._trainGenerator    = train_datagen.flow(self._xTrain, self._yTrain, batch_size=32)
-            self._testGenerator     = test_datagen.flow(self._xTest,self._yTest,batch_size=32)
-            valid_generator         = valid_datagen.flow(X_validate,Y_validate,batch_size=32)
+        #     self._trainGenerator    = train_datagen.flow(self._xTrain, self._yTrain, batch_size=32)
+        #     self._testGenerator     = test_datagen.flow(self._xTest,self._yTest,batch_size=32)
+        #     valid_generator         = valid_datagen.flow(X_validate,Y_validate,batch_size=32)
             
-            self._model.fit(
-                self._trainGenerator,
-                epochs=self._epochs,
-                validation_data=valid_generator,
-                callbacks = [
-                    keras.callbacks.EarlyStopping(monitor='loss', patience=10),
-                    keras.callbacks.ModelCheckpoint(
-                        filepath='/kaggle/working/',
-                        monitor='val_accuracy',
-                        save_best_only=True
-                    )
-                ]
-            )
+        #     self._model.fit(
+        #         self._trainGenerator,
+        #         epochs=self._epochs,
+        #         validation_data=valid_generator,
+        #         callbacks = [
+        #             keras.callbacks.EarlyStopping(monitor='loss', patience=10),
+        #             keras.callbacks.ModelCheckpoint(
+        #                 filepath='/kaggle/working/',
+        #                 monitor='val_accuracy',
+        #                 save_best_only=True
+        #             )
+        #         ]
+        #     )
 
         if okayToContinue is False:
             raise InitError(type(self))
@@ -264,6 +264,40 @@ class xASLHandler():
             self._imageTestArray = np.expand_dims(self._imageTestArray,axis=3)
             fLib.Save(self._imageTestArray, self._testCache)
 
+    def Train(self):
+        self._xTrain    = self._imageTrainArray.astype(float)
+        self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
+        self._xTest     = self._imageTestArray.astype(float)
+        self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
+
+        self._xTrain, X_validate, self._yTrain, Y_validate = train_test_split(self._xTrain, self._yTrain, test_size = 0.2, random_state = 12345)
+        
+        train_datagen = ImageDataGenerator(
+            rescale=1/255,rotation_range=45, width_shift_range=0.25,
+            height_shift_range=0.15,shear_range=0.15, zoom_range=0.2, 
+            fill_mode='nearest'
+        )
+        test_datagen            = ImageDataGenerator(rescale=1/255)
+        valid_datagen           = ImageDataGenerator(rescale=1/255)
+
+        self._trainGenerator    = train_datagen.flow(self._xTrain, self._yTrain, batch_size=32)
+        self._testGenerator     = test_datagen.flow(self._xTest,self._yTest,batch_size=32)
+        valid_generator         = valid_datagen.flow(X_validate,Y_validate,batch_size=32)
+        
+        self._model.fit(
+            self._trainGenerator,
+            epochs=self._epochs,
+            validation_data=valid_generator,
+            callbacks = [
+                keras.callbacks.EarlyStopping(monitor='loss', patience=10),
+                keras.callbacks.ModelCheckpoint(
+                    filepath='/kaggle/working/',
+                    monitor='val_accuracy',
+                    save_best_only=True
+                )
+            ]
+        )
+
     def Run(self):
         """
         TODO create model 
@@ -279,9 +313,12 @@ class xASLHandler():
             # Capture the video frame
             # by frame
             ret, frame = vid.read()
+
+            # I can start a thread here that processes the frames
         
             # Display the resulting frame
-            cv2.imshow('frame', frame)
+            print(frame.shape)
+            cv2.imshow('frame', frame[:,:,0])
             
             # the 'q' button is set as the
             # quitting button you may use any
