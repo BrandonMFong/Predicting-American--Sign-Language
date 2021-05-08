@@ -14,6 +14,7 @@ from    sklearn.model_selection                 import train_test_split
 import  pandas              as pd 
 import  numpy               as np
 import  matplotlib.pyplot   as plt 
+import  tkinter             as tk
 import  sys
 import  os
 import  math
@@ -301,14 +302,15 @@ class xASLHandler():
 
     def Run(self):
         """
-        TODO create model 
-        
         To Plot
         ------
         plt.imshow(self._imageTestArray[i])
         """
         # define a video capture object
         vid = cv2.VideoCapture(0)
+
+        runWindowThread = threading.Thread(target=self.RunWindow)
+        runWindowThread.start()
         
         while(True):
             
@@ -319,11 +321,7 @@ class xASLHandler():
             # I can start a thread here that processes the frames
         
             # Display the resulting frame
-            # print(frame.shape)
-            # print(time.strftime("%S"))
-
-            # cv2.imshow('title', time.strftime("%S"))
-            cv2.imshow(time.strftime("%S"), frame[:,:,0])
+            cv2.imshow('title', frame[:,:,0])
             
             # the 'q' button is set as the
             # quitting button you may use any
@@ -343,8 +341,116 @@ class xASLHandler():
         print(self._labelDictionary[int(self._testData._dataSet[self._testData._targetColumns].loc[index])])
         preds = self._model.predict(self._xTest)
         print(preds)
+    
+    def RunWindow(self):
+        window = tk.Tk()
+        greeting = tk.Label(text="Hello, Tkinter")
+        greeting.pack()
+        window.mainloop()
 
-class Project():
+class SampleApp(tk.Tk):
+
+    def __init__(self):
+        tk.Tk.__init__(self)
+        self.label = tk.Label(self, text='Enter text')
+        self.label.pack(side = 'top', pady = 5)
+        self.button = tk.Button(self, text='update', command=self.on_button)
+        self.button.pack()
+
+    def on_button(self):
+        self.label['text'] +='\nNew New Text'
+
+
+# class Project():
+#     """
+#     Final Project
+#     =============
+#     Author: Brando 
+
+#     Oultine 
+#     -------------
+#     The final image recognition project is following the structure of Chapter 2, that is the main steps to consider are:
+
+#     1. Look at the big picture.
+#     2. Get the data.
+#     3. Discover and visualize the data to gain insights.
+#     4. Prepare the data for Machine Learning algorithms.
+#     5. Select a model and train it.
+#     6. Fine-tune your model.
+
+#     Depending on the chosen project, It is not expected to complete the task that you set out to do but it is expected that at least one of the above steps challenges you, i.e. is different from what we have done in class. For example, getting the data could be challenging because it is not straightforward to scrape the images from the web, building a model could be changing the loss function of a neural network that is specific to the project.
+
+#     The finals week of class will be presenting the results of your project in a similar form to an article. In particular,
+
+#     - Intoduction. What is the problem you are trying to solve?
+
+#     - Dataset. present the details of dataset, displaying example images and how you obtained the dataset
+
+#     - Fine-Tuning. The different model parameters that were attempted
+
+#     - Results including accuracy tables and display the final outputs, i.e. how the trained network performed on some sample images
+
+#     - Outlook, discuss points of improvement or future steps to take the project further.
+
+#     I will be asking questions during the presentation to confirm your understanding in each step in the process.
+
+#     Details
+#     -------------
+#     Breaking down the outline:
+
+#     1. Look at the big picture.
+
+#     It is more motivating to choose a project that you personally find practical or that fills an obvious need.
+
+#     2. Get the data.
+
+#     Google Images has already done some hard work in labelling items but it is a good starting point if you need to get classified images. Note that scraping can be a challenge in itself, there is a bit of a hack using the package pyautogui, where you can give control of the keyword and mouse/cursor to the computer and perform the manual actions that you could take to save images from image search.
+
+#     There will be a challenge of creating a big enough dataset that is relatively unbiased. As you have observed, more examples lead to greater accuracy but gathering data can also be a big time suck so once you feel there is enough to continue with the following steps, then come back and gather even more data when you have prepared the code for the rest of the project.
+
+#     3. Discover and visualize the data to gain insights
+
+#     This stage of Exploratory Data Analysis (EDA) could be just a matter of viewing the images and the targets. If the images were scraped from Google Images, there may be some false positives and it would be good to crop them out. In the FacialKeypoints, the missing data there shared how unclean the data was but if you start to look at specific images, e.g. the shortest distance between eyes, you will find that there are many faces that didn't fill the whole 96x96 grid and may have skewed the learning/accuracy. Another reason to perform this step and be comfortable that the quality of the data going into the model is good.
+
+#     4& 5. Select a model, Prepare the data for Machine Learning algorithms. Train the model
+
+#     Steps 4 and 5 in the outline are not separable for me, i.e. you cannot prepare the data if you don't know the model that you are trying to fit or the loss you are trying to optimize.
+
+#     For example, the Yolo network has a very particular output/target and you would need to prepare the data when you have understood the neural network output.
+
+#     6. Fine-tune your model.
+
+#     Applying hyperparameter optimization to improve your accuracy. This shouldn't be too challenging because you should be reimplementing the code that was prepared for Week 7 Assignment.
+
+#     Example projects:
+
+#     - Street2Shop, matching an image of clothing off the street with a similar item in an online store
+
+#     - Grape Detection, identifying the location and number of grapes from an image
+
+#     - Make/Model Classification, classifying the make and model of a car from whatever angle
+
+#     - OCR (Optical Character Recognition), being able to convert the image of text into the string
+
+#     - Sky segmentation, being able to identify the sky in an image.
+
+#     - Helmet Detection, identifying whether motorcyclists or cyclists are wearing helmets.
+#     Overview 
+#     -------------
+#     My project is inspired by https://www.youtube.com/watch?v=pDXdlXlaCco 
+#     Dataset: https://www.kaggle.com/datamunge/sign-language-mnist
+
+#     """
+
+#     _basePath = sys.path[0]
+
+#     def __init__(self) -> None:
+#         self._signLangHandler = xASLHandler(1)
+    
+#     def Do(self):
+#         self._signLangHandler.Run()
+
+def main():
     """
     Final Project
     =============
@@ -424,19 +530,20 @@ class Project():
     Dataset: https://www.kaggle.com/datamunge/sign-language-mnist
 
     """
+    # w = SampleApp()
+    # w.resizable(width=True, height=True)
+    # w.geometry('{}x{}'.format(100, 90))
+    # w.label.config(text=w.label['text']+'\nnew text')
+    # w.mainloop()
 
-    _basePath = sys.path[0]
-
-    def __init__(self) -> None:
-        self._signLangHandler = xASLHandler(1)
-    
-    def Do(self):
-        self._signLangHandler.Run()
+    signLangHandler = xASLHandler(1)
+    signLangHandler.Run()
 
 if __name__ == "__main__":
-    print(Project.__doc__)
+    # print(Project.__doc__)
 
-    project = Project()
+    # project = Project()
 
-    project.Do()
+    # project.Do()
+    main()
     

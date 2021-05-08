@@ -1,8 +1,8 @@
 atpbar
-pickle
+pickle4
 pandas
 numpy 
 tensorflow
 sklearn
 matplotlib
-cv2
+opencv-python
