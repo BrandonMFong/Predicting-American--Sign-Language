@@ -22,7 +22,8 @@ import  threading
 import  cv2
 import  time 
 
-log = Logger(scriptName=__file__)
+# log = Logger(scriptName=__file__)
+gLetter = str()
 
 class TextWindow(tk.Tk):
     """
@@ -115,6 +116,7 @@ class xASLHandler():
         self._yTrain            = None 
         self._xTest             = None 
         self._yTest             = None 
+        self._log               = Logger(scriptName=__file__)
 
         if okayToContinue:
             fullTestFilename = fs.GetFilePath(self._rawTestFile)
@@ -180,7 +182,7 @@ class xASLHandler():
                 self._reshapeValue  = (temp, temp, 1)
                 # inputShapeModel = (temp, temp)
             else:
-                log.Error("Incompatable size for input images.  Total pixels for dataset:", len(self._trainData._trainColumns))
+                self._log.Error("Incompatable size for input images.  Total pixels for dataset:", len(self._trainData._trainColumns))
                 okayToContinue = False
 
         # Initialize the model 
@@ -202,16 +204,16 @@ class xASLHandler():
                 self._model.add(keras.layers.Dense(64, activation=keras.activations.relu))
                 self._model.add(keras.layers.Dense(outputShapeModel, activation=keras.activations.softmax))
             except TypeError as e:
-                log.Fatal("Could not build keras model")
-                log.Except(e)
+                self._log.Fatal("Could not build keras model")
+                self._log.Except(e)
                 okayToContinue = False
             except ValueError as e:
-                log.Fatal("Could not build keras model")
-                log.Except(e)
+                self._log.Fatal("Could not build keras model")
+                self._log.Except(e)
                 okayToContinue = False
             except Exception as e:
-                log.Fatal("Unknown exception")
-                log.Except(e)
+                self._log.Fatal("Unknown exception")
+                self._log.Except(e)
                 okayToContinue = False
         
         # Compile the model 
@@ -220,12 +222,12 @@ class xASLHandler():
                 self._model.compile(optimizer='SGD', loss='categorical_crossentropy', metrics = ['accuracy'])
                 self._model.summary()
             except ValueError as e:
-                log.Fatal("Could not compile keras model")
-                log.Except(e)
+                self._log.Fatal("Could not compile keras model")
+                self._log.Except(e)
                 okayToContinue = False
             except Exception as e:
-                log.Fatal("Unknown exception")
-                log.Except(e)
+                self._log.Fatal("Unknown exception")
+                self._log.Except(e)
                 okayToContinue = False
 
         # Train the model 
