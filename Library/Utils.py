@@ -13,6 +13,10 @@ from tensorflow.python.autograph.impl.api import convert
 
 fsSeparator = "\\" if platform == "win32" else "/"
 
+kAlphabet = [
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
+]
+
 class Logger():
     """
     Must declare at each 
@@ -137,28 +141,32 @@ class Base():
 
 class FileSystem():
 
-    def CreateFilePath(relativePath):
+    def GetFilePath(relativePath):
         return os.path.abspath(relativePath)
 
-    def GetFileList(directoryPath):
+    def GetFileList(directoryPath, useDoc2Vec=False):
         """
         Parameters
         ----------------
         - directoryPath: Directory path to files
         """
         status = True 
-        result = []
+        result = None
         log = Logger()
 
-        if status: 
-            status = os.path.exists(directoryPath)
-            if status is False:
-                log.Warn("Directory", directoryPath, "does not exist")
+        if useDoc2Vec:
+            pass 
+        else:
+            result = list()
+            if status: 
+                status = os.path.exists(directoryPath)
+                if status is False:
+                    log.Warn("Directory", directoryPath, "does not exist")
 
-        if status: 
-            for file in os.listdir(directoryPath):
-                fullFilePath = directoryPath + "/" + file 
-                result.append(open(fullFilePath).read())
+            if status: 
+                for file in atpbar(os.listdir(directoryPath), name="Reading files"):
+                    fullFilePath = directoryPath + "/" + file 
+                    result.append(open(fullFilePath).read())
 
         return result
         
@@ -196,6 +204,10 @@ class TaskError(Exception):
         return f'{self._class}: Task: {self._message} {self._additionalInfo}'
 
 class FunctionLibrary():
+    
+    kFind = 0
+    kReplace = 1
+
     def centeroidnp(arr):
         length = arr.shape[0]
         sum_x = np.sum(arr[:, 0])
@@ -227,3 +239,16 @@ class FunctionLibrary():
         Saves variable into cache file in the current directory 
         """
         pickle.dump([variable], open(filename, "wb"))
+
+    @staticmethod 
+    def StringToCharList(string):
+        result = list()
+        for char in string:
+            result.append(char)
+        return result 
+
+    @staticmethod 
+    def StripCharacters(string, charactersList: list):
+        for char in charactersList:
+            string = string.replace(char[FunctionLibrary.kFind], char[FunctionLibrary.kReplace])
+        return string 
