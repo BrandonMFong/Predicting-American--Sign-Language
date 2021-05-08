@@ -117,6 +117,7 @@ class xASLHandler():
         self._xTest             = None 
         self._yTest             = None 
         self._log               = Logger(scriptName=__file__)
+        self._textWindow        = None
 
         if okayToContinue:
             fullTestFilename = fs.GetFilePath(self._rawTestFile)
@@ -265,6 +266,11 @@ class xASLHandler():
         #         ]
         #     )
 
+        # if okayToContinue:
+        #     self._textWindow = TextWindow()
+        #     self._textWindow.resizable(width=True, height=True)
+        #     self._textWindow.geometry('{}x{}'.format(100, 90))
+
         if okayToContinue is False:
             raise InitError(type(self))
 
@@ -325,35 +331,37 @@ class xASLHandler():
         plt.imshow(self._imageTestArray[i])
         """
         # define a video capture object
-        vid = cv2.VideoCapture(0)
+        vid = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
         runWindowThread = threading.Thread(target=self.RunWindow)
         runWindowThread.start()
         
-        while(True):
-            
-            # Capture the video frame
-            # by frame
-            ret, frame = vid.read()
+        try:
+            while(True):
+                
+                # Capture the video frame
+                # by frame
+                ret, frame = vid.read()
 
-            # I can start a thread here that processes the frames
-        
-            # Display the resulting frame
-            cv2.imshow('title', frame[:,:,0])
+                # I can start a thread here that processes the frames
             
-            # the 'q' button is set as the
-            # quitting button you may use any
-            # desired button of your choice
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-
-            # break 
+                # Display the resulting frame
+                self.UpdateText(time.strftime("%S")) # TODO update with predictions 
+                cv2.imshow('title', frame[:,:,0])
+                
+                # the 'q' button is set as the
+                # quitting button you may use any
+                # desired button of your choice
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+        except KeyboardInterrupt:
+            pass 
         
         # After the loop release the cap object
         vid.release()
         # Destroy all the windows
         cv2.destroyAllWindows()
-
+        self._textWindow.destroy()
         runWindowThread.join()
 
     def Test(self):
@@ -363,10 +371,14 @@ class xASLHandler():
         print(preds)
     
     def RunWindow(self):
-        w = TextWindow()
-        w.resizable(width=True, height=True)
-        w.geometry('{}x{}'.format(100, 90))
-        w.mainloop()
+        self._textWindow = TextWindow()
+        self._textWindow.resizable(width=True, height=True)
+        self._textWindow.geometry('{}x{}'.format(100, 90))
+        self._textWindow.mainloop()
+
+    def UpdateText(self, value: str):
+        if self._textWindow is not None: 
+            self._textWindow.label['text'] = value
 
 def main():
     """
