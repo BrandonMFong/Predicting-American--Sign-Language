@@ -19,6 +19,7 @@ import  os
 import  math
 import  threading
 import  cv2
+import  time 
 
 log = Logger(scriptName=__file__)
 
@@ -99,11 +100,11 @@ class xASLHandler():
         self._yTest             = None 
 
         if okayToContinue:
-            fullTestFilename = fs.CreateFilePath(self._rawTestFile)
+            fullTestFilename = fs.GetFilePath(self._rawTestFile)
             if os.path.exists(fullTestFilename) is False:
                 okayToContinue = False
                 print("File", fullTestFilename, "does not exist")
-            fullTrainFilename = fs.CreateFilePath(self._rawTrainFile)
+            fullTrainFilename = fs.GetFilePath(self._rawTrainFile)
             if os.path.exists(fullTrainFilename) is False:
                 okayToContinue = False
                 print("File", fullTrainFilename, "does not exist")
@@ -305,7 +306,8 @@ class xASLHandler():
         To Plot
         ------
         plt.imshow(self._imageTestArray[i])
-        """# define a video capture object
+        """
+        # define a video capture object
         vid = cv2.VideoCapture(0)
         
         while(True):
@@ -317,14 +319,19 @@ class xASLHandler():
             # I can start a thread here that processes the frames
         
             # Display the resulting frame
-            print(frame.shape)
-            cv2.imshow('frame', frame[:,:,0])
+            # print(frame.shape)
+            # print(time.strftime("%S"))
+
+            # cv2.imshow('title', time.strftime("%S"))
+            cv2.imshow(time.strftime("%S"), frame[:,:,0])
             
             # the 'q' button is set as the
             # quitting button you may use any
             # desired button of your choice
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+
+            # break 
         
         # After the loop release the cap object
         vid.release()

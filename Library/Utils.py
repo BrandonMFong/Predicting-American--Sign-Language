@@ -1,15 +1,19 @@
+"""
+Utils
+===============
+My utility library 
+"""
+__author__ = "Brando"
+
+from atpbar     import atpbar
+from sys        import platform 
+from datetime   import datetime
 import os 
 import pickle 
 import numpy as np 
 import pandas as pd 
-import sys 
 import math 
-from atpbar import atpbar
-from sys import platform 
-from datetime import datetime
 import tensorflow as tf
-
-from tensorflow.python.autograph.impl.api import convert
 
 fsSeparator = "\\" if platform == "win32" else "/"
 

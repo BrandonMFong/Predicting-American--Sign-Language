@@ -1,0 +1,8 @@
+atpbar
+pickle
+pandas
+numpy 
+tensorflow
+sklearn
+matplotlib
+cv2
