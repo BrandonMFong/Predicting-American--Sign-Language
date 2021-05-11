@@ -15,6 +15,8 @@ import pandas as pd
 import math 
 import tensorflow as tf
 
+YES = True 
+NO  = False
 fsSeparator = "\\" if platform == "win32" else "/"
 
 kAlphabet = [

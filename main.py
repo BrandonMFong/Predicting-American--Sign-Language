@@ -6,9 +6,7 @@ from    tensorflow                              import keras
 from    atpbar                                  import atpbar
 from    Library                                 import FunctionLibrary  as fLib
 from    Library                                 import FileSystem       as fs 
-from    Library                                 import Logger 
-from    Library                                 import InitError
-from    Library                                 import Base
+from    Library                                 import Logger, InitError, Base, YES, NO
 from    tensorflow.keras.preprocessing.image    import ImageDataGenerator
 from    sklearn.model_selection                 import train_test_split
 import  pandas              as pd 
@@ -33,13 +31,12 @@ class TextWindow(tk.Tk):
         tk.Tk.__init__(self)
         self.label = tk.Label(self, text='Enter text')
         self.label.pack(side = 'top', pady = 5)
-        self.button = tk.Button(self, text='update', command=self.on_button)
+        self.button = tk.Button(self, text='stop', command=self.on_button)
         self.button.pack()
         self._number = 0
 
     def on_button(self):
-        self.label['text'] ="{}".format(self._number)
-        self._number += 1
+        self.destroy()
 
 class xASLHandler():
     """
@@ -97,9 +94,9 @@ class xASLHandler():
         fullTestFilename    = None
         fullTrainFilename   = None
         temp                = None
-        # newShape            = None
         inputShapeModel     = None 
         outputShapeModel    = None
+        doTrain             = YES
 
         self._trainData         = None
         self._testData          = None
@@ -181,7 +178,6 @@ class xASLHandler():
             if math.remainder(temp,1) == 0.0:
                 temp                = int(temp)
                 self._reshapeValue  = (temp, temp, 1)
-                # inputShapeModel = (temp, temp)
             else:
                 self._log.Error("Incompatable size for input images.  Total pixels for dataset:", len(self._trainData._trainColumns))
                 okayToContinue = False
@@ -192,7 +188,6 @@ class xASLHandler():
             try:
                 outputShapeModel = len(self._labelDictionary) - 2 # Not include J or Z
 
-                # self._model.add(keras.layers.Conv2D(16, (3,3), padding='same', activation=keras.activations.relu,input_shape=(28, 28, 1)))
                 self._model.add(keras.layers.Conv2D(16, (3,3), padding='same', activation=keras.activations.relu,input_shape=self._reshapeValue))
                 self._model.add(keras.layers.MaxPooling2D((2,2)))
                 self._model.add(keras.layers.Conv2D(32, (3,3), padding='same', activation=keras.activations.relu))
@@ -232,44 +227,8 @@ class xASLHandler():
                 okayToContinue = False
 
         # Train the model 
-        # if okayToContinue:
-        #     self._xTrain    = self._imageTrainArray.astype(float)
-        #     self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
-        #     self._xTest     = self._imageTestArray.astype(float)
-        #     self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
-
-        #     self._xTrain, X_validate, self._yTrain, Y_validate = train_test_split(self._xTrain, self._yTrain, test_size = 0.2, random_state = 12345)
-            
-        #     train_datagen = ImageDataGenerator(
-        #         rescale=1/255,rotation_range=45, width_shift_range=0.25,
-        #         height_shift_range=0.15,shear_range=0.15, zoom_range=0.2, 
-        #         fill_mode='nearest'
-        #     )
-        #     test_datagen            = ImageDataGenerator(rescale=1/255)
-        #     valid_datagen           = ImageDataGenerator(rescale=1/255)
-
-        #     self._trainGenerator    = train_datagen.flow(self._xTrain, self._yTrain, batch_size=32)
-        #     self._testGenerator     = test_datagen.flow(self._xTest,self._yTest,batch_size=32)
-        #     valid_generator         = valid_datagen.flow(X_validate,Y_validate,batch_size=32)
-            
-        #     self._model.fit(
-        #         self._trainGenerator,
-        #         epochs=self._epochs,
-        #         validation_data=valid_generator,
-        #         callbacks = [
-        #             keras.callbacks.EarlyStopping(monitor='loss', patience=10),
-        #             keras.callbacks.ModelCheckpoint(
-        #                 filepath='/kaggle/working/',
-        #                 monitor='val_accuracy',
-        #                 save_best_only=True
-        #             )
-        #         ]
-        #     )
-
-        # if okayToContinue:
-        #     self._textWindow = TextWindow()
-        #     self._textWindow.resizable(width=True, height=True)
-        #     self._textWindow.geometry('{}x{}'.format(100, 90))
+        if okayToContinue and doTrain:
+            self.Train()
 
         if okayToContinue is False:
             raise InitError(type(self))
@@ -334,6 +293,7 @@ class xASLHandler():
         vid = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
         runWindowThread = threading.Thread(target=self.RunWindow)
+        runWindowThread.daemon = True 
         runWindowThread.start()
         
         try:
@@ -346,8 +306,9 @@ class xASLHandler():
                 # I can start a thread here that processes the frames
             
                 # Display the resulting frame
+                pred = self.GetPrediction(frame)
                 self.UpdateText(time.strftime("%S")) # TODO update with predictions 
-                cv2.imshow('title', frame[:,:,0])
+                cv2.imshow('title', frame)
                 
                 # the 'q' button is set as the
                 # quitting button you may use any
@@ -361,14 +322,22 @@ class xASLHandler():
         vid.release()
         # Destroy all the windows
         cv2.destroyAllWindows()
-        self._textWindow.destroy()
         runWindowThread.join()
 
-    def Test(self):
-        index = 4
-        print(self._labelDictionary[int(self._testData._dataSet[self._testData._targetColumns].loc[index])])
-        preds = self._model.predict(self._xTest)
-        print(preds)
+    def GetPrediction(self,frame: np):
+        result = None 
+        res = cv2.resize(frame,(28,28),fx=0,fy=0, interpolation = cv2.INTER_CUBIC)
+        print(res[:,:,0].shape)
+
+        # Input 0 of layer sequential is incompatible with the layer: : expected min_ndim=4, found ndim=2. Full shape received: (None, 28)
+        result = self._model.predict(res[:,:,0])
+        print(result)
+
+    # def Test(self):
+    #     index = 4
+    #     print(self._labelDictionary[int(self._testData._dataSet[self._testData._targetColumns].loc[index])])
+    #     preds = self._model.predict(self._xTest)
+    #     print(preds)
     
     def RunWindow(self):
         self._textWindow = TextWindow()
