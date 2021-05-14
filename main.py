@@ -326,19 +326,16 @@ class xASLHandler():
 
     def GetPrediction(self,frame: np):
         result = None 
+
+        # Resize 
         res = cv2.resize(frame,(28,28),fx=0,fy=0, interpolation = cv2.INTER_CUBIC)
-        print(res[:,:,0].shape)
+        res = np.expand_dims(res[:,:,0], axis=-1)
+        res = np.expand_dims(res, axis=0)
 
         # Input 0 of layer sequential is incompatible with the layer: : expected min_ndim=4, found ndim=2. Full shape received: (None, 28)
-        result = self._model.predict(res[:,:,0])
+        result = self._model.predict(res)
         print(result)
 
-    # def Test(self):
-    #     index = 4
-    #     print(self._labelDictionary[int(self._testData._dataSet[self._testData._targetColumns].loc[index])])
-    #     preds = self._model.predict(self._xTest)
-    #     print(preds)
-    
     def RunWindow(self):
         self._textWindow = TextWindow()
         self._textWindow.resizable(width=True, height=True)
