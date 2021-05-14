@@ -21,9 +21,6 @@ import  threading
 import  cv2
 import  time 
 
-# log = Logger(scriptName=__file__)
-gLetter = str()
-
 class TextWindow(tk.Tk):
     """
     https://stackoverflow.com/questions/45397806/update-text-on-a-tkinter-window
@@ -41,7 +38,8 @@ class TextWindow(tk.Tk):
 
 class xASLHandler():
     """
-    https://www.kaggle.com/sandeepbhogaraju/sign-language-identifier-100-accuracy-tf-model
+    xASLHandler
+    =============
     """
 
     # Data
@@ -95,8 +93,6 @@ class xASLHandler():
         fullTestFilename    = None
         fullTrainFilename   = None
         temp                = None
-        inputShapeModel     = None 
-        outputShapeModel    = None
         doTrain             = YES
 
         self._trainData         = None
@@ -185,17 +181,12 @@ class xASLHandler():
 
         # Initialize the model 
         if okayToContinue:
-            # self.GetIOs()
             self.GetIOs2()
-        
-            # okayToContinue = self.CreateModel()
             okayToContinue = self.CreateModel2()
 
         # Train the model 
         if okayToContinue and doTrain:
-            # self.Train()
             self.Train2()
-            # self.Train3()
 
         if okayToContinue is False:
             raise InitError(type(self))
@@ -230,19 +221,7 @@ class xASLHandler():
 
         self._xTrain = self._xTrain/255.0
         self._xTest = self._xTest/255.0
-        print("x_train shape: ",self._xTrain.shape)
-        print("x_test shape: ",self._xTest.shape)    
 
-    def GetIOs(self):
-        self._xTrain    = self._imageTrainArray.astype(float)
-        self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
-        self._xTest     = self._imageTestArray.astype(float)
-        self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
-
-        self._xTrain, self._X_validate, self._yTrain, self._Y_validate = train_test_split(
-            self._xTrain, self._yTrain, test_size = 0.2, random_state = 12345
-            )
-    
     def CreateModel2(self):
         success = True 
         try:
@@ -272,7 +251,6 @@ class xASLHandler():
         """
         https://www.kaggle.com/hkubra/mnist-cnn-with-keras-99-accuracy
         """
-        epochs = 3  # for better result increase the epochs
         batch_size = 128
         datagen = ImageDataGenerator(
             featurewise_center=False,  # set input mean to 0 over the dataset
@@ -289,9 +267,87 @@ class xASLHandler():
 
         datagen.fit(self._xTrain)
         history = self._model.fit_generator(datagen.flow(self._xTrain, self._yTrain, batch_size=batch_size),
-                              epochs = epochs, validation_data = (self._xTest, self._yTest),
+                              epochs = self._epochs, validation_data = (self._xTest, self._yTest),
                              steps_per_epoch=self._xTrain.shape[0] // batch_size)
 
+    def Run(self):
+        """
+        """
+        # define a video capture object
+        vid = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+
+        runWindowThread = threading.Thread(target=self.RunWindow)
+        runWindowThread.daemon = True 
+        runWindowThread.start()
+        
+        try:
+            while(True):
+                
+                # Capture the video frame
+                # by frame
+                ret, frame = vid.read()
+
+                # I can start a thread here that processes the frames
+            
+                # Display the resulting frame
+                pred = self.GetPrediction(frame)
+                self.UpdateText(pred)
+                cv2.imshow('title', frame)
+                
+                # the 'q' button is set as the
+                # quitting button you may use any
+                # desired button of your choice
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+        except KeyboardInterrupt:
+            pass 
+        
+        # After the loop release the cap object
+        vid.release()
+        # Destroy all the windows
+        cv2.destroyAllWindows()
+        runWindowThread.join()
+
+    def GetPrediction(self,frame: np) -> str:
+        result = str() 
+
+        # Resize 
+        res = cv2.resize(frame,(28,28),fx=0,fy=0, interpolation = cv2.INTER_CUBIC)
+        res = np.expand_dims(res[:,:,0], axis=-1)
+        res = np.expand_dims(res, axis=0)
+        res = res.astype(float)
+
+        # Normalize 
+        inputData   = ImageDataGenerator(rescale=1/255)
+        input       = inputData.flow(res)
+
+        # Predict
+        array   = self._model.predict(input)
+        index   = np.argmax(array)
+        result  = self._labelDictionary[index]
+
+        return result
+
+    def RunWindow(self):
+        self._textWindow = TextWindow()
+        self._textWindow.resizable(width=True, height=True)
+        self._textWindow.geometry('{}x{}'.format(100, 90))
+        self._textWindow.mainloop()
+
+    def UpdateText(self, value: str):
+        if self._textWindow is not None: 
+            self._textWindow.label['text'] = value
+
+    def GetIOs(self):
+        self._xTrain    = self._imageTrainArray.astype(float)
+        self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
+        self._xTest     = self._imageTestArray.astype(float)
+        self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
+
+        self._xTrain, self._X_validate, self._yTrain, self._Y_validate = train_test_split(
+            self._xTrain, self._yTrain, test_size = 0.2, random_state = 12345
+            )
+    
     def CreateModel(self):
         success = YES
 
@@ -342,6 +398,9 @@ class xASLHandler():
         return success
 
     def Train(self):
+        """
+        Unsuccessful
+        """
         train_datagen = ImageDataGenerator(
             rescale=1/255,rotation_range=45, width_shift_range=0.25,
             height_shift_range=0.15,shear_range=0.15, zoom_range=0.2, 
@@ -369,79 +428,6 @@ class xASLHandler():
         )
 
         pred = self._model.predict(self._testGenerator)
-
-    def Train3(self):    
-        print(self._xTrain.shape)
-        print(self._yTrain.shape)
-        self._model.fit(self._xTrain, self._yTrain, epochs=self._epochs)
-
-    def Run(self):
-        """
-        To Plot
-        ------
-        plt.imshow(self._imageTestArray[i])
-        """
-        # define a video capture object
-        vid = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-
-        runWindowThread = threading.Thread(target=self.RunWindow)
-        runWindowThread.daemon = True 
-        runWindowThread.start()
-        
-        try:
-            while(True):
-                
-                # Capture the video frame
-                # by frame
-                ret, frame = vid.read()
-
-                # I can start a thread here that processes the frames
-            
-                # Display the resulting frame
-                pred = self.GetPrediction(frame)
-                self.UpdateText(pred) # TODO update with predictions 
-                # self.UpdateText(time.strftime("%S")) # TODO update with predictions 
-                cv2.imshow('title', frame)
-                
-                # the 'q' button is set as the
-                # quitting button you may use any
-                # desired button of your choice
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-        except KeyboardInterrupt:
-            pass 
-        
-        # After the loop release the cap object
-        vid.release()
-        # Destroy all the windows
-        cv2.destroyAllWindows()
-        runWindowThread.join()
-
-    def GetPrediction(self,frame: np) -> str:
-        result = str() 
-
-        # Resize 
-        res = cv2.resize(frame,(28,28),fx=0,fy=0, interpolation = cv2.INTER_CUBIC)
-        res = np.expand_dims(res[:,:,0], axis=-1)
-        res = np.expand_dims(res, axis=0)
-        res = res.astype(float)
-
-        inputData = ImageDataGenerator(rescale=1/255)
-        input     = inputData.flow(res)
-        array = self._model.predict(input)
-        index = np.argmax(array)
-        result = self._labelDictionary[index]
-        return result
-
-    def RunWindow(self):
-        self._textWindow = TextWindow()
-        self._textWindow.resizable(width=True, height=True)
-        self._textWindow.geometry('{}x{}'.format(100, 90))
-        self._textWindow.mainloop()
-
-    def UpdateText(self, value: str):
-        if self._textWindow is not None: 
-            self._textWindow.label['text'] = value
 
 def main():
     """
