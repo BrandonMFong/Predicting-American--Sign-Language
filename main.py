@@ -272,7 +272,7 @@ class xASLHandler():
         """
         https://www.kaggle.com/hkubra/mnist-cnn-with-keras-99-accuracy
         """
-        epochs = 30  # for better result increase the epochs
+        epochs = 3  # for better result increase the epochs
         batch_size = 128
         datagen = ImageDataGenerator(
             featurewise_center=False,  # set input mean to 0 over the dataset
@@ -399,7 +399,8 @@ class xASLHandler():
             
                 # Display the resulting frame
                 pred = self.GetPrediction(frame)
-                self.UpdateText(time.strftime("%S")) # TODO update with predictions 
+                self.UpdateText(pred) # TODO update with predictions 
+                # self.UpdateText(time.strftime("%S")) # TODO update with predictions 
                 cv2.imshow('title', frame)
                 
                 # the 'q' button is set as the
@@ -416,7 +417,7 @@ class xASLHandler():
         cv2.destroyAllWindows()
         runWindowThread.join()
 
-    def GetPrediction(self,frame: np):
+    def GetPrediction(self,frame: np) -> str:
         result = str() 
 
         # Resize 
@@ -427,9 +428,7 @@ class xASLHandler():
 
         inputData = ImageDataGenerator(rescale=1/255)
         input     = inputData.flow(res)
-        # Input 0 of layer sequential is incompatible with the layer: : expected min_ndim=4, found ndim=2. Full shape received: (None, 28)
         array = self._model.predict(input)
-        print(array)
         index = np.argmax(array)
         result = self._labelDictionary[index]
         return result
