@@ -184,47 +184,14 @@ class xASLHandler():
 
         # Initialize the model 
         if okayToContinue:
-            self._model = keras.Sequential()
-            try:
-                outputShapeModel = len(self._labelDictionary) - 2 # Not include J or Z
+            self._xTrain    = self._imageTrainArray.astype(float)
+            self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
+            self._xTest     = self._imageTestArray.astype(float)
+            self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
 
-                self._model.add(keras.layers.Conv2D(16, (3,3), padding='same', activation=keras.activations.relu,input_shape=self._reshapeValue))
-                self._model.add(keras.layers.MaxPooling2D((2,2)))
-                self._model.add(keras.layers.Conv2D(32, (3,3), padding='same', activation=keras.activations.relu))
-                self._model.add(keras.layers.MaxPooling2D((2,2)))
-                self._model.add(keras.layers.Conv2D(64, (3,3), padding='same', activation=keras.activations.relu))
-                self._model.add(keras.layers.MaxPooling2D((2,2)))
-                self._model.add(keras.layers.Conv2D(128, (3,3), padding='same', activation=keras.activations.relu))
-                self._model.add(keras.layers.MaxPooling2D((2,2)))
-                self._model.add(keras.layers.Flatten())
-                self._model.add(keras.layers.Dense(64, activation=keras.activations.relu))
-                self._model.add(keras.layers.Dense(outputShapeModel, activation=keras.activations.softmax))
-            except TypeError as e:
-                self._log.Fatal("Could not build keras model")
-                self._log.Except(e)
-                okayToContinue = False
-            except ValueError as e:
-                self._log.Fatal("Could not build keras model")
-                self._log.Except(e)
-                okayToContinue = False
-            except Exception as e:
-                self._log.Fatal("Unknown exception")
-                self._log.Except(e)
-                okayToContinue = False
+            self._xTrain, self._X_validate, self._yTrain, self._Y_validate = train_test_split(self._xTrain, self._yTrain, test_size = 0.2, random_state = 12345)
         
-        # Compile the model 
-        if okayToContinue:
-            try:
-                self._model.compile(optimizer='SGD', loss='categorical_crossentropy', metrics = ['accuracy'])
-                self._model.summary()
-            except ValueError as e:
-                self._log.Fatal("Could not compile keras model")
-                self._log.Except(e)
-                okayToContinue = False
-            except Exception as e:
-                self._log.Fatal("Unknown exception")
-                self._log.Except(e)
-                okayToContinue = False
+            okayToContinue = self.CreateModel()
 
         # Train the model 
         if okayToContinue and doTrain:
@@ -249,25 +216,108 @@ class xASLHandler():
             self._imageTestArray = np.expand_dims(self._imageTestArray,axis=3)
             fLib.Save(self._imageTestArray, self._testCache)
 
-    def Train(self):
-        self._xTrain    = self._imageTrainArray.astype(float)
-        self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
-        self._xTest     = self._imageTestArray.astype(float)
-        self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
+    def CreateModel2(self):
+        self._model = keras.layers.Sequential()
+        self._model.add(keras.layers.Conv2D(filters = 8, kernel_size = (5,5),padding = 'Same', 
+                        activation ='relu', input_shape = (28,28,1)))
+        self._model.add(keras.layers.MaxPool2D(pool_size=(2,2)))
+        self._model.add(keras.layers.Dropout(0.25))
 
-        self._xTrain, X_validate, self._yTrain, Y_validate = train_test_split(self._xTrain, self._yTrain, test_size = 0.2, random_state = 12345)
+        self._model.add(keras.layers.Conv2D(filters = 16, kernel_size = (3,3),padding = 'Same', 
+                        activation ='relu'))
+        self._model.add(keras.layers.MaxPool2D(pool_size=(2,2), strides=(2,2)))
+        self._model.add(keras.layers.Dropout(0.25))
+
+        self._model.add(keras.layers.Flatten())
+        self._model.add(keras.layers.Dense(512, activation = "relu"))
+        self._model.add(keras.layers.Dropout(0.5))
+        self._model.add(keras.layers.Dense(25, activation = "softmax"))
+        optimizer = keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999)
+        self._model.compile(optimizer = optimizer , loss = "categorical_crossentropy", metrics=["accuracy"])
+
+    def Train2(self):
+        epochs = 30  # for better result increase the epochs
+        batch_size = 128
+        datagen = ImageDataGenerator(
+            featurewise_center=False,  # set input mean to 0 over the dataset
+            samplewise_center=False,  # set each sample mean to 0
+            featurewise_std_normalization=False,  # divide inputs by std of the dataset
+            samplewise_std_normalization=False,  # divide each input by its std
+            zca_whitening=False,  # dimesion reduction
+            rotation_range=10,  # randomly rotate images in the range 5 degrees
+            zoom_range = 0.1, # Randomly zoom image 10%
+            width_shift_range=0.1,  # randomly shift images horizontally 10%
+            height_shift_range=0.1,  # randomly shift images vertically 10%
+            horizontal_flip=False,  # randomly flip images
+            vertical_flip=False)  # randomly flip images
+
+        self._xTrain  = self._imageTrainArray.astype(float)
+        datagen.fit(self._xTrain)
+        history = self._model.fit_generator(datagen.flow(self._xTrain, self._yTrain, batch_size=batch_size),
+                              epochs = epochs, validation_data = (self._xTest, self._yTest),
+                             steps_per_epoch=self._xTrain.shape[0] // batch_size)
+
+    def CreateModel(self):
+        success = YES
+
+        # Initialize the model 
+        if success:
+            self._model = keras.Sequential()
+            try:
+                outputShapeModel = len(self._labelDictionary)
+
+                self._model.add(keras.layers.Conv2D(16, (3,3), padding='same', activation=keras.activations.relu,input_shape=self._reshapeValue))
+                self._model.add(keras.layers.MaxPooling2D((2,2)))
+                self._model.add(keras.layers.Conv2D(32, (3,3), padding='same', activation=keras.activations.relu))
+                self._model.add(keras.layers.MaxPooling2D((2,2)))
+                self._model.add(keras.layers.Conv2D(64, (3,3), padding='same', activation=keras.activations.relu))
+                self._model.add(keras.layers.MaxPooling2D((2,2)))
+                self._model.add(keras.layers.Conv2D(128, (3,3), padding='same', activation=keras.activations.relu))
+                self._model.add(keras.layers.MaxPooling2D((2,2)))
+                self._model.add(keras.layers.Flatten())
+                self._model.add(keras.layers.Dense(64, activation=keras.activations.relu))
+                self._model.add(keras.layers.Dense(outputShapeModel, activation=keras.activations.softmax))
+            except TypeError as e:
+                self._log.Fatal("Could not build keras model")
+                self._log.Except(e)
+                success = False
+            except ValueError as e:
+                self._log.Fatal("Could not build keras model")
+                self._log.Except(e)
+                success = False
+            except Exception as e:
+                self._log.Fatal("Unknown exception")
+                self._log.Except(e)
+                success = False
         
+        # Compile the model 
+        if success:
+            try:
+                self._model.compile(optimizer='SGD', loss='categorical_crossentropy', metrics = ['accuracy'])
+                self._model.summary()
+            except ValueError as e:
+                self._log.Fatal("Could not compile keras model")
+                self._log.Except(e)
+                success = False
+            except Exception as e:
+                self._log.Fatal("Unknown exception")
+                self._log.Except(e)
+                success = False
+        
+        return success
+
+    def Train(self):
         train_datagen = ImageDataGenerator(
             rescale=1/255,rotation_range=45, width_shift_range=0.25,
             height_shift_range=0.15,shear_range=0.15, zoom_range=0.2, 
             fill_mode='nearest'
         )
-        test_datagen            = ImageDataGenerator(rescale=1/255)
-        valid_datagen           = ImageDataGenerator(rescale=1/255)
+        test_datagen    = ImageDataGenerator(rescale=1/255)
+        valid_datagen   = ImageDataGenerator(rescale=1/255)
 
         self._trainGenerator    = train_datagen.flow(self._xTrain, self._yTrain, batch_size=32)
         self._testGenerator     = test_datagen.flow(self._xTest,self._yTest,batch_size=32)
-        valid_generator         = valid_datagen.flow(X_validate,Y_validate,batch_size=32)
+        valid_generator         = valid_datagen.flow(self._X_validate,self._Y_validate,batch_size=32)
         
         self._model.fit(
             self._trainGenerator,
@@ -282,6 +332,8 @@ class xASLHandler():
                 )
             ]
         )
+
+        pred = self._model.predict(self._testGenerator)
 
     def Run(self):
         """
@@ -331,9 +383,13 @@ class xASLHandler():
         res = cv2.resize(frame,(28,28),fx=0,fy=0, interpolation = cv2.INTER_CUBIC)
         res = np.expand_dims(res[:,:,0], axis=-1)
         res = np.expand_dims(res, axis=0)
+        res = res.astype(float)
 
+        inputData = ImageDataGenerator(rescale=1/255)
+        input     = inputData.flow(res)
         # Input 0 of layer sequential is incompatible with the layer: : expected min_ndim=4, found ndim=2. Full shape received: (None, 28)
-        result = self._model.predict(res)
+        # result = self._model.predict(res)
+        result = self._model.predict(input)
         print(result)
 
     def RunWindow(self):
