@@ -216,11 +216,11 @@ class xASLHandler():
         self._xTest     = self._imageTestArray.astype(float)
         self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
 
-        self._yTrain = to_categorical(self._yTrain, num_classes=25)
-        self._yTest = to_categorical(self._yTest, num_classes=25)
+        self._yTrain    = to_categorical(self._yTrain, num_classes=25)
+        self._yTest     = to_categorical(self._yTest, num_classes=25)
 
-        self._xTrain = self._xTrain/255.0
-        self._xTest = self._xTest/255.0
+        self._xTrain    = self._xTrain/255.0
+        self._xTest     = self._xTest/255.0
 
     def CreateModel2(self):
         success = True 
@@ -266,7 +266,7 @@ class xASLHandler():
             vertical_flip=False)  # randomly flip images
 
         datagen.fit(self._xTrain)
-        history = self._model.fit_generator(datagen.flow(self._xTrain, self._yTrain, batch_size=batch_size),
+        _ = self._model.fit_generator(datagen.flow(self._xTrain, self._yTrain, batch_size=batch_size),
                               epochs = self._epochs, validation_data = (self._xTest, self._yTest),
                              steps_per_epoch=self._xTrain.shape[0] // batch_size)
 
@@ -285,7 +285,7 @@ class xASLHandler():
                 
                 # Capture the video frame
                 # by frame
-                ret, frame = vid.read()
+                _, frame = vid.read()
 
                 # I can start a thread here that processes the frames
             
@@ -338,97 +338,6 @@ class xASLHandler():
         if self._textWindow is not None: 
             self._textWindow.label['text'] = value
 
-    def GetIOs(self):
-        self._xTrain    = self._imageTrainArray.astype(float)
-        self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
-        self._xTest     = self._imageTestArray.astype(float)
-        self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
-
-        self._xTrain, self._X_validate, self._yTrain, self._Y_validate = train_test_split(
-            self._xTrain, self._yTrain, test_size = 0.2, random_state = 12345
-            )
-    
-    def CreateModel(self):
-        success = YES
-
-        # Initialize the model 
-        if success:
-            self._model = keras.Sequential()
-            try:
-                outputShapeModel = len(self._labelDictionary)
-
-                self._model.add(keras.layers.Conv2D(16, (3,3), padding='same', activation=keras.activations.relu,input_shape=self._reshapeValue))
-                self._model.add(keras.layers.MaxPooling2D((2,2)))
-                self._model.add(keras.layers.Conv2D(32, (3,3), padding='same', activation=keras.activations.relu))
-                self._model.add(keras.layers.MaxPooling2D((2,2)))
-                # self._model.add(keras.layers.Conv2D(64, (3,3), padding='same', activation=keras.activations.relu))
-                # self._model.add(keras.layers.MaxPooling2D((2,2)))
-                # self._model.add(keras.layers.Conv2D(128, (3,3), padding='same', activation=keras.activations.relu))
-                # self._model.add(keras.layers.MaxPooling2D((2,2)))
-                self._model.add(keras.layers.Flatten())
-                self._model.add(keras.layers.Dense(64, activation=keras.activations.relu))
-                self._model.add(keras.layers.Dense(outputShapeModel, activation=keras.activations.softmax))
-            except TypeError as e:
-                self._log.Fatal("Could not build keras model")
-                self._log.Except(e)
-                success = False
-            except ValueError as e:
-                self._log.Fatal("Could not build keras model")
-                self._log.Except(e)
-                success = False
-            except Exception as e:
-                self._log.Fatal("Unknown exception")
-                self._log.Except(e)
-                success = False
-        
-        # Compile the model 
-        if success:
-            try:
-                self._model.compile(optimizer='SGD', loss='categorical_crossentropy', metrics = ['accuracy'])
-                self._model.summary()
-            except ValueError as e:
-                self._log.Fatal("Could not compile keras model")
-                self._log.Except(e)
-                success = False
-            except Exception as e:
-                self._log.Fatal("Unknown exception")
-                self._log.Except(e)
-                success = False
-        
-        return success
-
-    def Train(self):
-        """
-        Unsuccessful
-        """
-        train_datagen = ImageDataGenerator(
-            rescale=1/255,rotation_range=45, width_shift_range=0.25,
-            height_shift_range=0.15,shear_range=0.15, zoom_range=0.2, 
-            fill_mode='nearest'
-        )
-        test_datagen    = ImageDataGenerator(rescale=1/255)
-        valid_datagen   = ImageDataGenerator(rescale=1/255)
-
-        self._trainGenerator    = train_datagen.flow(self._xTrain, self._yTrain, batch_size=32)
-        self._testGenerator     = test_datagen.flow(self._xTest,self._yTest,batch_size=32)
-        valid_generator         = valid_datagen.flow(self._X_validate,self._Y_validate,batch_size=32)
-        
-        self._model.fit(
-            self._trainGenerator,
-            epochs=self._epochs,
-            validation_data=valid_generator,
-            callbacks = [
-                keras.callbacks.EarlyStopping(monitor='loss', patience=10),
-                keras.callbacks.ModelCheckpoint(
-                    filepath='/kaggle/working/',
-                    monitor='val_accuracy',
-                    save_best_only=True
-                )
-            ]
-        )
-
-        pred = self._model.predict(self._testGenerator)
-
 def main():
     """
     Final Project
@@ -447,7 +356,7 @@ def main():
     6. Fine-tune your model.
 
     """
-    signLangHandler = xASLHandler(1)
+    signLangHandler = xASLHandler(epochs=10)
     signLangHandler.Run()
 
 if __name__ == "__main__":
