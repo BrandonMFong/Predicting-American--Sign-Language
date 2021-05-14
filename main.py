@@ -9,6 +9,7 @@ from    Library                                 import FileSystem       as fs
 from    Library                                 import Logger, InitError, Base, YES, NO
 from    tensorflow.keras.preprocessing.image    import ImageDataGenerator
 from    sklearn.model_selection                 import train_test_split
+from    tensorflow.keras.utils                  import to_categorical
 import  pandas              as pd 
 import  numpy               as np
 import  matplotlib.pyplot   as plt 
@@ -184,18 +185,17 @@ class xASLHandler():
 
         # Initialize the model 
         if okayToContinue:
-            self._xTrain    = self._imageTrainArray.astype(float)
-            self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
-            self._xTest     = self._imageTestArray.astype(float)
-            self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
-
-            self._xTrain, self._X_validate, self._yTrain, self._Y_validate = train_test_split(self._xTrain, self._yTrain, test_size = 0.2, random_state = 12345)
+            # self.GetIOs()
+            self.GetIOs2()
         
-            okayToContinue = self.CreateModel()
+            # okayToContinue = self.CreateModel()
+            okayToContinue = self.CreateModel2()
 
         # Train the model 
         if okayToContinue and doTrain:
-            self.Train()
+            # self.Train()
+            self.Train2()
+            # self.Train3()
 
         if okayToContinue is False:
             raise InitError(type(self))
@@ -216,26 +216,62 @@ class xASLHandler():
             self._imageTestArray = np.expand_dims(self._imageTestArray,axis=3)
             fLib.Save(self._imageTestArray, self._testCache)
 
+    def GetIOs2(self):
+        """
+        https://www.kaggle.com/hkubra/mnist-cnn-with-keras-99-accuracy
+        """
+        self._xTrain    = self._imageTrainArray.astype(float)
+        self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns]
+        self._xTest     = self._imageTestArray.astype(float)
+        self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
+
+        self._yTrain = to_categorical(self._yTrain, num_classes=25)
+        self._yTest = to_categorical(self._yTest, num_classes=25)
+
+        self._xTrain = self._xTrain/255.0
+        self._xTest = self._xTest/255.0
+        print("x_train shape: ",self._xTrain.shape)
+        print("x_test shape: ",self._xTest.shape)    
+
+    def GetIOs(self):
+        self._xTrain    = self._imageTrainArray.astype(float)
+        self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns].astype(float)
+        self._xTest     = self._imageTestArray.astype(float)
+        self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
+
+        self._xTrain, self._X_validate, self._yTrain, self._Y_validate = train_test_split(
+            self._xTrain, self._yTrain, test_size = 0.2, random_state = 12345
+            )
+    
     def CreateModel2(self):
-        self._model = keras.layers.Sequential()
-        self._model.add(keras.layers.Conv2D(filters = 8, kernel_size = (5,5),padding = 'Same', 
-                        activation ='relu', input_shape = (28,28,1)))
-        self._model.add(keras.layers.MaxPool2D(pool_size=(2,2)))
-        self._model.add(keras.layers.Dropout(0.25))
+        success = True 
+        try:
+            self._model = keras.Sequential()
+            self._model.add(keras.layers.Conv2D(filters = 8, kernel_size = (5,5),padding = 'Same', 
+                            activation ='relu', input_shape = (28,28,1)))
+            self._model.add(keras.layers.MaxPool2D(pool_size=(2,2)))
+            self._model.add(keras.layers.Dropout(0.25))
 
-        self._model.add(keras.layers.Conv2D(filters = 16, kernel_size = (3,3),padding = 'Same', 
-                        activation ='relu'))
-        self._model.add(keras.layers.MaxPool2D(pool_size=(2,2), strides=(2,2)))
-        self._model.add(keras.layers.Dropout(0.25))
+            self._model.add(keras.layers.Conv2D(filters = 16, kernel_size = (3,3),padding = 'Same', 
+                            activation ='relu'))
+            self._model.add(keras.layers.MaxPool2D(pool_size=(2,2), strides=(2,2)))
+            self._model.add(keras.layers.Dropout(0.25))
 
-        self._model.add(keras.layers.Flatten())
-        self._model.add(keras.layers.Dense(512, activation = "relu"))
-        self._model.add(keras.layers.Dropout(0.5))
-        self._model.add(keras.layers.Dense(25, activation = "softmax"))
-        optimizer = keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999)
-        self._model.compile(optimizer = optimizer , loss = "categorical_crossentropy", metrics=["accuracy"])
+            self._model.add(keras.layers.Flatten())
+            self._model.add(keras.layers.Dense(512, activation = "relu"))
+            self._model.add(keras.layers.Dropout(0.5))
+            self._model.add(keras.layers.Dense(25, activation = "softmax"))
+            optimizer = keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999)
+            self._model.compile(optimizer = optimizer , loss = "categorical_crossentropy", metrics=["accuracy"])
+        except Exception as e:
+            self._log.Except(e)
+            success = False 
+        return success
 
     def Train2(self):
+        """
+        https://www.kaggle.com/hkubra/mnist-cnn-with-keras-99-accuracy
+        """
         epochs = 30  # for better result increase the epochs
         batch_size = 128
         datagen = ImageDataGenerator(
@@ -251,7 +287,6 @@ class xASLHandler():
             horizontal_flip=False,  # randomly flip images
             vertical_flip=False)  # randomly flip images
 
-        self._xTrain  = self._imageTrainArray.astype(float)
         datagen.fit(self._xTrain)
         history = self._model.fit_generator(datagen.flow(self._xTrain, self._yTrain, batch_size=batch_size),
                               epochs = epochs, validation_data = (self._xTest, self._yTest),
@@ -270,10 +305,10 @@ class xASLHandler():
                 self._model.add(keras.layers.MaxPooling2D((2,2)))
                 self._model.add(keras.layers.Conv2D(32, (3,3), padding='same', activation=keras.activations.relu))
                 self._model.add(keras.layers.MaxPooling2D((2,2)))
-                self._model.add(keras.layers.Conv2D(64, (3,3), padding='same', activation=keras.activations.relu))
-                self._model.add(keras.layers.MaxPooling2D((2,2)))
-                self._model.add(keras.layers.Conv2D(128, (3,3), padding='same', activation=keras.activations.relu))
-                self._model.add(keras.layers.MaxPooling2D((2,2)))
+                # self._model.add(keras.layers.Conv2D(64, (3,3), padding='same', activation=keras.activations.relu))
+                # self._model.add(keras.layers.MaxPooling2D((2,2)))
+                # self._model.add(keras.layers.Conv2D(128, (3,3), padding='same', activation=keras.activations.relu))
+                # self._model.add(keras.layers.MaxPooling2D((2,2)))
                 self._model.add(keras.layers.Flatten())
                 self._model.add(keras.layers.Dense(64, activation=keras.activations.relu))
                 self._model.add(keras.layers.Dense(outputShapeModel, activation=keras.activations.softmax))
@@ -335,6 +370,11 @@ class xASLHandler():
 
         pred = self._model.predict(self._testGenerator)
 
+    def Train3(self):    
+        print(self._xTrain.shape)
+        print(self._yTrain.shape)
+        self._model.fit(self._xTrain, self._yTrain, epochs=self._epochs)
+
     def Run(self):
         """
         To Plot
@@ -377,7 +417,7 @@ class xASLHandler():
         runWindowThread.join()
 
     def GetPrediction(self,frame: np):
-        result = None 
+        result = str() 
 
         # Resize 
         res = cv2.resize(frame,(28,28),fx=0,fy=0, interpolation = cv2.INTER_CUBIC)
@@ -388,9 +428,11 @@ class xASLHandler():
         inputData = ImageDataGenerator(rescale=1/255)
         input     = inputData.flow(res)
         # Input 0 of layer sequential is incompatible with the layer: : expected min_ndim=4, found ndim=2. Full shape received: (None, 28)
-        # result = self._model.predict(res)
-        result = self._model.predict(input)
-        print(result)
+        array = self._model.predict(input)
+        print(array)
+        index = np.argmax(array)
+        result = self._labelDictionary[index]
+        return result
 
     def RunWindow(self):
         self._textWindow = TextWindow()

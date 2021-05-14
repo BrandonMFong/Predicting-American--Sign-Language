@@ -69,7 +69,7 @@ class Base():
 
     _reshapeFacialKeyImage = (96,96)
 
-    def __init__(self,dataSet=None,task1DataSet=None,task2DataSet=None) -> None:
+    def __init__(self,dataSet=None,task1DataSet=None,task2DataSet=None,dropNaN=True) -> None:
         
         self._task1DataSet = None if task1DataSet is None else task1DataSet 
         self._task2DataSet = None if task2DataSet is None else task2DataSet 
@@ -79,6 +79,9 @@ class Base():
             self._dataSet = pd.DataFrame()
         else:
             self._dataSet = dataSet
+
+        if dropNaN:
+            self._dataSet = self._dataSet.dropna()
 
         # Train and Target Columns
         self._trainColumns = None 
