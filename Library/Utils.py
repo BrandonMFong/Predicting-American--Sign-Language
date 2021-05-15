@@ -23,6 +23,11 @@ kAlphabet = [
     "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
 ]
 
+def GetPercentage(val):
+    result = val * 100
+    result = round(result)
+    return result
+
 class Logger():
     """
     Must declare at each 
@@ -90,11 +95,6 @@ class Base():
 
         # PCA Column variable
         self._pcaColumns = []
-
-    def GetPercentage(val):
-        result = val * 100
-        result = round(result)
-        return result
 
     def CreateTrainAndTargetColumns(self,targetColumns: list) -> bool:
         """

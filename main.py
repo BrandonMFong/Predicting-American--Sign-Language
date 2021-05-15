@@ -1,3 +1,12 @@
+"""
+main.py
+================
+Contains xASLHandler class
+
+Todo
+-------------------
+- Properly exit out of application 
+"""
 # Brando 
 # 3/30/2021
 # Final Project
@@ -6,7 +15,7 @@ from    tensorflow                              import keras
 from    atpbar                                  import atpbar
 from    Library                                 import FunctionLibrary  as fLib
 from    Library                                 import FileSystem       as fs 
-from    Library                                 import Logger, InitError, Base, YES, NO
+from    Library                                 import Logger, InitError, Base, YES, NO, GetPercentage
 from    tensorflow.keras.preprocessing.image    import ImageDataGenerator
 from    sklearn.model_selection                 import train_test_split
 from    tensorflow.keras.utils                  import to_categorical
@@ -27,8 +36,10 @@ class TextWindow(tk.Tk):
     """
     def __init__(self):
         tk.Tk.__init__(self)
-        self.label = tk.Label(self, text='Enter text')
-        self.label.pack(side = 'top', pady = 5)
+        self._predictionLabel = tk.Label(self, text='Prediction')
+        self._predictionLabel.pack(side = 'top', pady = 5)
+        self._confidenceLabel = tk.Label(self, text='Confidence')
+        self._confidenceLabel.pack(side = 'top', pady = 5)
         self.button = tk.Button(self, text='stop', command=self.on_button)
         self.button.pack()
         self._number = 0
@@ -242,6 +253,7 @@ class xASLHandler():
             self._model.add(keras.layers.Dense(25, activation = "softmax"))
             optimizer = keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999)
             self._model.compile(optimizer = optimizer , loss = "categorical_crossentropy", metrics=["accuracy"])
+            self._model.summary()
         except Exception as e:
             self._log.Except(e)
             success = False 
@@ -290,8 +302,8 @@ class xASLHandler():
                 # I can start a thread here that processes the frames
             
                 # Display the resulting frame
-                pred = self.GetPrediction(frame)
-                self.UpdateText(pred)
+                pred, conf = self.GetPrediction(frame)
+                self.UpdateText(pred,conf)
                 cv2.imshow('title', frame)
                 
                 # the 'q' button is set as the
@@ -310,6 +322,7 @@ class xASLHandler():
 
     def GetPrediction(self,frame: np) -> str:
         result = str() 
+        conf = float()
 
         # Resize 
         res = cv2.resize(frame,(28,28),fx=0,fy=0, interpolation = cv2.INTER_CUBIC)
@@ -324,19 +337,21 @@ class xASLHandler():
         # Predict
         array   = self._model.predict(input)
         index   = np.argmax(array)
+        conf    = array[0][index]
         result  = self._labelDictionary[index]
 
-        return result
+        return result, conf
 
     def RunWindow(self):
         self._textWindow = TextWindow()
         self._textWindow.resizable(width=True, height=True)
-        self._textWindow.geometry('{}x{}'.format(100, 90))
+        self._textWindow.geometry('{}x{}'.format(200, 200))
         self._textWindow.mainloop()
 
-    def UpdateText(self, value: str):
+    def UpdateText(self, value: str, confidence: float):
         if self._textWindow is not None: 
-            self._textWindow.label['text'] = value
+            self._textWindow._predictionLabel['text'] = "Prediction: {}".format(value)
+            self._textWindow._confidenceLabel['text'] = "Confidence: {}%".format(GetPercentage(confidence))
 
 def main():
     """
