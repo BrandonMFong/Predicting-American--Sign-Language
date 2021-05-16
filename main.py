@@ -34,18 +34,29 @@ class TextWindow(tk.Tk):
     """
     https://stackoverflow.com/questions/45397806/update-text-on-a-tkinter-window
     """
-    def __init__(self):
+    def __init__(self, stopRecordingCallback):
         tk.Tk.__init__(self)
+
+        # Window killed flag
+
+        # Create prediction label 
         self._predictionLabel = tk.Label(self, text='Prediction')
         self._predictionLabel.pack(side = 'top', pady = 5)
+
+        # Create Confidence label 
         self._confidenceLabel = tk.Label(self, text='Confidence')
         self._confidenceLabel.pack(side = 'top', pady = 5)
+
+        # Stop button 
         self.button = tk.Button(self, text='stop', command=self.on_button)
         self.button.pack()
-        self._number = 0
+
+        # Save callback function
+        self._stopRecordingCallback = stopRecordingCallback
 
     def on_button(self):
         self.destroy()
+        self._stopRecordingCallback()
 
 class xASLHandler():
     """
@@ -54,11 +65,11 @@ class xASLHandler():
     """
 
     # Data
-    _rawTestFile = "data/test/sign.csv"
-    _rawTrainFile = "data/train/sign.csv"
+    _rawTestFile    = "data/test/sign.csv"
+    _rawTrainFile   = "data/train/sign.csv"
 
     # Cache files
-    _testCache = "testImages.cache"
+    _testCache  = "testImages.cache"
     _trainCache = "trainImages.cache"
 
     # Label Mapping 
@@ -96,7 +107,7 @@ class xASLHandler():
 
     _defaultPaddingForModel = "same"
 
-    _testArrayName = "test"
+    _testArrayName  = "test"
     _trainArrayName = "train"
 
     def __init__(self,epochs=10) -> None:
@@ -123,6 +134,7 @@ class xASLHandler():
         self._yTest             = None 
         self._log               = Logger(scriptName=__file__)
         self._textWindow        = None
+        self._keepRecording     = True
 
         if okayToContinue:
             fullTestFilename = fs.GetFilePath(self._rawTestFile)
@@ -236,24 +248,64 @@ class xASLHandler():
     def CreateModel2(self):
         success = True 
         try:
+            # Establish Sequential model 
             self._model = keras.Sequential()
-            self._model.add(keras.layers.Conv2D(filters = 8, kernel_size = (5,5),padding = 'Same', 
-                            activation ='relu', input_shape = (28,28,1)))
+
+            # Conv2D
+            self._model.add(
+                keras.layers.Conv2D(
+                    filters     = 8, 
+                    kernel_size = (5,5),
+                    padding     = 'Same', 
+                    activation  = 'relu', 
+                    input_shape = self._reshapeValue
+                    # input_shape = (28,28,1)
+            ))
+
+            # MaxPool2D
             self._model.add(keras.layers.MaxPool2D(pool_size=(2,2)))
+
             self._model.add(keras.layers.Dropout(0.25))
 
-            self._model.add(keras.layers.Conv2D(filters = 16, kernel_size = (3,3),padding = 'Same', 
-                            activation ='relu'))
+            # Conv2D
+            self._model.add(
+                keras.layers.Conv2D(
+                    filters = 16, 
+                    kernel_size = (3,3),
+                    padding = 'Same', 
+                    activation ='relu'
+            ))
+
+            # MaxPool2D
             self._model.add(keras.layers.MaxPool2D(pool_size=(2,2), strides=(2,2)))
+
             self._model.add(keras.layers.Dropout(0.25))
 
             self._model.add(keras.layers.Flatten())
+
             self._model.add(keras.layers.Dense(512, activation = "relu"))
+
             self._model.add(keras.layers.Dropout(0.5))
+
+            # 25 outputs
             self._model.add(keras.layers.Dense(25, activation = "softmax"))
-            optimizer = keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999)
-            self._model.compile(optimizer = optimizer , loss = "categorical_crossentropy", metrics=["accuracy"])
+
+            # Adam optimizer 
+            optimizer = keras.optimizers.Adam(
+                lr      = 0.001, 
+                beta_1  = 0.9,
+                beta_2  = 0.999
+            )
+
+            self._model.compile(
+                optimizer   = optimizer , 
+                loss        = "categorical_crossentropy", 
+                metrics     = ["accuracy"]
+            )
+
+            # Print Summary
             self._model.summary()
+
         except Exception as e:
             self._log.Except(e)
             success = False 
@@ -265,35 +317,47 @@ class xASLHandler():
         """
         batch_size = 128
         datagen = ImageDataGenerator(
-            featurewise_center=False,  # set input mean to 0 over the dataset
-            samplewise_center=False,  # set each sample mean to 0
-            featurewise_std_normalization=False,  # divide inputs by std of the dataset
-            samplewise_std_normalization=False,  # divide each input by its std
-            zca_whitening=False,  # dimesion reduction
-            rotation_range=10,  # randomly rotate images in the range 5 degrees
-            zoom_range = 0.1, # Randomly zoom image 10%
-            width_shift_range=0.1,  # randomly shift images horizontally 10%
-            height_shift_range=0.1,  # randomly shift images vertically 10%
-            horizontal_flip=False,  # randomly flip images
-            vertical_flip=False)  # randomly flip images
+            featurewise_center              = False, 
+            samplewise_center               = False, 
+            featurewise_std_normalization   = False, 
+            samplewise_std_normalization    = False, 
+            zca_whitening                   = False, 
+            rotation_range                  = 10, 
+            zoom_range                      = 0.1, 
+            width_shift_range               = 0.1, 
+            height_shift_range              = 0.1,
+            horizontal_flip                 = False, 
+            vertical_flip                   = False
+        ) 
 
         datagen.fit(self._xTrain)
-        _ = self._model.fit_generator(datagen.flow(self._xTrain, self._yTrain, batch_size=batch_size),
-                              epochs = self._epochs, validation_data = (self._xTest, self._yTest),
-                             steps_per_epoch=self._xTrain.shape[0] // batch_size)
+        _ = self._model.fit_generator(
+            datagen.flow(
+                self._xTrain, 
+                self._yTrain, 
+                batch_size = batch_size
+            ),
+            epochs          = self._epochs, 
+            validation_data = (self._xTest, self._yTest),
+            steps_per_epoch = self._xTrain.shape[0] // batch_size
+        )
 
     def Run(self):
         """
+        Run 
+        ================
         """
+        self._keepRecording = True 
+
         # define a video capture object
         vid = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
-        runWindowThread = threading.Thread(target=self.RunWindow)
-        runWindowThread.daemon = True 
+        runWindowThread         = threading.Thread(target=self.RunWindow)
+        runWindowThread.daemon  = True 
         runWindowThread.start()
         
         try:
-            while(True):
+            while self._keepRecording:
                 
                 # Capture the video frame
                 # by frame
@@ -318,7 +382,7 @@ class xASLHandler():
         vid.release()
         # Destroy all the windows
         cv2.destroyAllWindows()
-        runWindowThread.join()
+        # runWindowThread.join()
 
     def GetPrediction(self,frame: np) -> str:
         result = str() 
@@ -343,7 +407,7 @@ class xASLHandler():
         return result, conf
 
     def RunWindow(self):
-        self._textWindow = TextWindow()
+        self._textWindow = TextWindow(stopRecordingCallback=self.StopRecording)
         self._textWindow.resizable(width=True, height=True)
         self._textWindow.geometry('{}x{}'.format(200, 200))
         self._textWindow.mainloop()
@@ -352,6 +416,9 @@ class xASLHandler():
         if self._textWindow is not None: 
             self._textWindow._predictionLabel['text'] = "Prediction: {}".format(value)
             self._textWindow._confidenceLabel['text'] = "Confidence: {}%".format(GetPercentage(confidence))
+
+    def StopRecording(self):
+        self._keepRecording = False 
 
 def main():
     """
@@ -371,7 +438,7 @@ def main():
     6. Fine-tune your model.
 
     """
-    signLangHandler = xASLHandler(epochs=10)
+    signLangHandler = xASLHandler(epochs=1)
     signLangHandler.Run()
 
 if __name__ == "__main__":
