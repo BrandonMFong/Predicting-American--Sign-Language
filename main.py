@@ -13,6 +13,7 @@ Todo
 
 from    tensorflow                              import keras
 from    atpbar                                  import atpbar
+from tensorflow.python.keras.callbacks import Callback
 from    Library                                 import FunctionLibrary  as fLib
 from    Library                                 import FileSystem       as fs 
 from    Library                                 import Logger, InitError, Base, YES, NO, GetPercentage
@@ -30,14 +31,15 @@ import  threading
 import  cv2
 import  time 
 
-class TextWindow(tk.Tk):
+class PredictionOutput(tk.Tk):
     """
+    PredictionOutput
+    ==================
+    Shows the ASLHandler's prediction and confidence values 
     https://stackoverflow.com/questions/45397806/update-text-on-a-tkinter-window
     """
-    def __init__(self, stopRecordingCallback):
+    def __init__(self, stopRecordingCallback: Callback):
         tk.Tk.__init__(self)
-
-        # Window killed flag
 
         # Create prediction label 
         self._predictionLabel = tk.Label(self, text='Prediction')
@@ -56,7 +58,7 @@ class TextWindow(tk.Tk):
 
     def on_button(self):
         self.destroy()
-        self._stopRecordingCallback()
+        self._stopRecordingCallback() # Kill the recording
 
 class xASLHandler():
     """
@@ -156,6 +158,15 @@ class xASLHandler():
 
         if okayToContinue:
             okayToContinue = self._trainData.CreateTrainAndTargetColumns(targetColumns=[self._defaultTargetColumn])
+
+        # Create the output window 
+        if okayToContinue:
+            self._textWindow = PredictionOutput(stopRecordingCallback=self.StopRecording)
+            self._textWindow.resizable(width=True, height=True)
+            self._textWindow.geometry('{}x{}'.format(200, 200))
+            if self._textWindow is None:
+                self._log.Fatal("Could not create output window")
+                okayToContinue = False 
 
         # Organize into reshaped datasets
         if okayToContinue:
@@ -344,17 +355,14 @@ class xASLHandler():
 
     def Record(self):
         """
-        Run 
+        Record 
         ================
+        Uses cv2 to record user's hands
         """
         self._keepRecording = True 
 
         # define a video capture object
         vid = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-
-        # runWindowThread         = threading.Thread(target=self.RunWindow)
-        # runWindowThread.daemon  = True 
-        # runWindowThread.start()
         
         try:
             while self._keepRecording:
@@ -376,13 +384,11 @@ class xASLHandler():
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
         except KeyboardInterrupt:
+            self._log.Warn("User interrupted")
             pass 
         
-        # After the loop release the cap object
-        vid.release()
-        # Destroy all the windows
-        cv2.destroyAllWindows()
-        # runWindowThread.join()
+        vid.release() # After the loop release the cap object
+        cv2.destroyAllWindows() # Destroy all the windows
 
     def GetPrediction(self,frame: np) -> str:
         result = str() 
@@ -412,10 +418,7 @@ class xASLHandler():
         recordThread.daemon  = True 
         recordThread.start()
 
-        # Initialize and start the output window 
-        self._textWindow = TextWindow(stopRecordingCallback=self.StopRecording)
-        self._textWindow.resizable(width=True, height=True)
-        self._textWindow.geometry('{}x{}'.format(200, 200))
+        # Start the output window 
         self._textWindow.mainloop()
 
     def UpdateText(self, value: str, confidence: float):
