@@ -342,7 +342,7 @@ class xASLHandler():
             steps_per_epoch = self._xTrain.shape[0] // batch_size
         )
 
-    def Run(self):
+    def Record(self):
         """
         Run 
         ================
@@ -352,9 +352,9 @@ class xASLHandler():
         # define a video capture object
         vid = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
-        runWindowThread         = threading.Thread(target=self.RunWindow)
-        runWindowThread.daemon  = True 
-        runWindowThread.start()
+        # runWindowThread         = threading.Thread(target=self.RunWindow)
+        # runWindowThread.daemon  = True 
+        # runWindowThread.start()
         
         try:
             while self._keepRecording:
@@ -406,7 +406,13 @@ class xASLHandler():
 
         return result, conf
 
-    def RunWindow(self):
+    def Run(self):
+        # Start the recording thread 
+        recordThread         = threading.Thread(target=self.Record)
+        recordThread.daemon  = True 
+        recordThread.start()
+
+        # Initialize and start the output window 
         self._textWindow = TextWindow(stopRecordingCallback=self.StopRecording)
         self._textWindow.resizable(width=True, height=True)
         self._textWindow.geometry('{}x{}'.format(200, 200))
