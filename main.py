@@ -71,8 +71,11 @@ class xASLHandler():
     _rawTrainFile   = "data/train/sign.csv"
 
     # Cache files
-    _testCache  = "testImages.cache"
-    _trainCache = "trainImages.cache"
+    _cacheDir           = "cache"
+    _testCache          = _cacheDir + "/testImages.cache"
+    _trainCache         = _cacheDir + "/trainImages.cache"
+    _targetTestCache    = _cacheDir + "/targetTest.cache"
+    _targetTrainCache   = _cacheDir + "/targetTrain.cache"
 
     # Label Mapping 
     _labelDictionary = {
@@ -118,6 +121,7 @@ class xASLHandler():
         fullTrainFilename   = None
         temp                = None
         doTrain             = YES
+        tempList            = list()
 
         self._trainData         = None
         self._testData          = None
@@ -147,9 +151,21 @@ class xASLHandler():
             if os.path.exists(fullTrainFilename) is False:
                 okayToContinue = False
                 print("File", fullTrainFilename, "does not exist")
+        
+        if okayToContinue:
+            self._testCache         = fs.GetFilePath(self._testCache)
+            self._trainCache        = fs.GetFilePath(self._trainCache)
+            self._targetTestCache   = fs.GetFilePath(self._targetTestCache)
+            self._targetTrainCache  = fs.GetFilePath(self._targetTrainCache)
+            tempList = [self._testCache, self._trainCache, self._targetTestCache, self._targetTrainCache]
+            for cacheFile in tempList:
+                okayToContinue = fs.CreatePath(cacheFile,True)
+                if okayToContinue is False:
+                    self._log.Fatal("Could not get path to cache:", cacheFile)
+                    break
 
         if okayToContinue:
-            self._testData = Base(pd.read_csv(fullTestFilename))
+            self._testData  = Base(pd.read_csv(fullTestFilename))
             self._trainData = Base(pd.read_csv(fullTrainFilename))
             okayToContinue  = True if self._testData._dataSet.empty is False and self._trainData._dataSet.empty is False else False 
 
@@ -182,26 +198,38 @@ class xASLHandler():
         if okayToContinue:
             self._imageTestArray    = fLib.Load(self._testCache)
             self._imageTrainArray   = fLib.Load(self._trainCache)
+            self._yTest             = fLib.Load(self._targetTestCache)
+            self._yTrain            = fLib.Load(self._targetTrainCache)
 
             # Test data
-            if self._imageTestArray is None:
+            if self._imageTestArray is None or self._yTest is None:
                 print("Image Test cache was not found, creating data...")
                 loadImageTestArrayThread = threading.Thread(target=self.LoadImageArrayOnThread, args=(self._testArrayName,self._testData._dataSet))
                 loadImageTestArrayThread.start()
 
             # Train data 
-            if self._imageTrainArray is None:
+            if self._imageTrainArray is None or self._yTrain is None:
                 print("Image Train cache was not found, creating data...")
                 loadImageTrainArrayThread = threading.Thread(target=self.LoadImageArrayOnThread, args=(self._trainArrayName,self._trainData._dataSet))
                 loadImageTrainArrayThread.start()
 
-            if self._imageTrainArray is None:
+            if self._imageTrainArray is None or self._yTrain is None:
                 loadImageTrainArrayThread.join()
 
-            if self._imageTestArray is None:
+            if self._imageTestArray is None or self._yTest is None:
                 loadImageTestArrayThread.join()
 
-            okayToContinue = True if self._imageTestArray is not None and self._imageTrainArray is not None else False 
+            if self._imageTestArray is None and self._imageTrainArray is None:
+                okayToContinue = False 
+            elif self._yTest is None and self._yTrain is None:
+                okayToContinue = False
+            elif len(self._yTrain) != len(self._imageTrainArray):
+                okayToContinue = False
+            elif len(self._yTest) != len(self._imageTestArray):
+                okayToContinue = False
+
+            if okayToContinue is False:
+                self._log.Error("Could not get train or test data")
 
         # Prepare variables for the Sequential model 
         if okayToContinue: 
@@ -229,18 +257,32 @@ class xASLHandler():
         """
         LoadImageArrayOnThread
         ===========
-        Generates the image data 
+        Generates the image data
+
+        Could I flip the images?  
         """
-        success = True 
+        success     = True 
         images      = []
         imageArray  = None 
         cacheFile   = str()
+        reversed    = None
+        targetArray = list()
+        targetCache = str()
 
         if success:
             for i in atpbar(range(dataSet.shape[0]), name="{} Data".format(forArray)):
-                row     = dataSet.iloc[i]
-                image   = np.array_split(row[1:],28)
+                row = dataSet.iloc[i]
+
+                # Normal
+                image = np.array_split(row[1:],28)
                 images.append(image)
+                targetArray.append(row[self._trainData._targetColumns]) # Trusting that test and train data both have same target name
+
+                # # Mirrored image
+                # reversed = row[::-1]
+                # image = np.array_split(reversed[:-1],28)
+                # images.append(image)
+                # targetArray.append(row[self._trainData._targetColumns]) # Trusting that test and train data both have same target name
 
             if len(images) == 0:
                 success = False
@@ -254,20 +296,21 @@ class xASLHandler():
                 self._log.Fatal("Unexpected outcome from numpy array generation")
 
         if success: 
-            if forArray == "train":
-                cacheFile = self._trainCache
-                # self._imageTrainArray = np.array(images)
-                # self._imageTrainArray = np.expand_dims(self._imageTrainArray,axis=3)
-                self._imageTrainArray = imageArray
-                # fLib.Save(self._imageTrainArray, self._trainCache)
-            elif forArray == "test":
-                cacheFile = self._testCache
-                # self._imageTestArray = np.array(images)
-                # self._imageTestArray = np.expand_dims(self._imageTestArray,axis=3)
-                self._imageTestArray = imageArray
-                # fLib.Save(self._imageTestArray, self._testCache)
+            if forArray == self._trainArrayName:
+                cacheFile               = self._trainCache
+                self._imageTrainArray   = imageArray
+
+                targetCache     = self._targetTrainCache
+                self._yTrain    = targetArray
+            elif forArray == self._testArrayName:
+                cacheFile               = self._testCache
+                self._imageTestArray    = imageArray
+
+                targetCache = self._targetTestCache
+                self._yTest = targetArray
 
             fLib.Save(imageArray, cacheFile)
+            fLib.Save(targetArray, targetCache)
 
     def GetIOs2(self):
         """
@@ -278,9 +321,7 @@ class xASLHandler():
         https://www.kaggle.com/hkubra/mnist-cnn-with-keras-99-accuracy
         """
         self._xTrain    = self._imageTrainArray.astype(float)
-        self._yTrain    = self._trainData._dataSet[self._trainData._targetColumns]
         self._xTest     = self._imageTestArray.astype(float)
-        self._yTest     = self._testData._dataSet[self._testData._targetColumns].astype(float)
 
         self._yTrain    = to_categorical(self._yTrain, num_classes=25)
         self._yTest     = to_categorical(self._yTest, num_classes=25)
@@ -293,6 +334,8 @@ class xASLHandler():
         CreateModel2
         ============
         Second revision of the model 
+
+        https://www.kaggle.com/a7madmostafa/sign-mnist-with-cnn-100-accuracy 
         """
         success = True 
         try:
@@ -302,51 +345,64 @@ class xASLHandler():
             # Conv2D
             self._model.add(
                 keras.layers.Conv2D(
-                    filters     = 8, 
-                    kernel_size = (5,5),
+                    filters     = 128, 
+                    kernel_size = (3,3),
+                    strides     = 1,
                     padding     = 'Same', 
                     activation  = 'relu', 
                     input_shape = self._reshapeValue
-                    # input_shape = (28,28,1)
             ))
 
             # MaxPool2D
             self._model.add(keras.layers.MaxPool2D(pool_size=(2,2)))
 
-            self._model.add(keras.layers.Dropout(0.25))
+            # Conv2D
+            self._model.add(
+                keras.layers.Conv2D(
+                    filters     = 64, 
+                    kernel_size = (3,3),
+                    strides     = 1,
+                    padding     = 'Same', 
+                    activation  ='relu'
+            ))
 
             # Conv2D
             self._model.add(
                 keras.layers.Conv2D(
-                    filters = 16, 
+                    filters     = 64, 
                     kernel_size = (3,3),
-                    padding = 'Same', 
-                    activation ='relu'
+                    strides     = 1,
+                    padding     = 'Same', 
+                    activation  ='relu'
             ))
 
             # MaxPool2D
-            self._model.add(keras.layers.MaxPool2D(pool_size=(2,2), strides=(2,2)))
+            self._model.add(keras.layers.MaxPool2D(pool_size=(2,2)))
 
-            self._model.add(keras.layers.Dropout(0.25))
+            # Conv2D
+            self._model.add(
+                keras.layers.Conv2D(
+                    filters     = 25, 
+                    kernel_size = (3,3),
+                    strides     = 1,
+                    padding     = 'Same', 
+                    activation  ='relu'
+            ))
+
+            # MaxPool2D
+            self._model.add(keras.layers.MaxPool2D(pool_size=(2,2)))
 
             self._model.add(keras.layers.Flatten())
 
             self._model.add(keras.layers.Dense(512, activation = "relu"))
 
-            self._model.add(keras.layers.Dropout(0.5))
+            self._model.add(keras.layers.Dropout(0.2))
 
             # 25 outputs
             self._model.add(keras.layers.Dense(25, activation = "softmax"))
 
-            # Adam optimizer 
-            optimizer = keras.optimizers.Adam(
-                lr      = 0.001, 
-                beta_1  = 0.9,
-                beta_2  = 0.999
-            )
-
             self._model.compile(
-                optimizer   = optimizer , 
+                optimizer   = "adam" , 
                 loss        = "categorical_crossentropy", 
                 metrics     = ["accuracy"]
             )
@@ -414,8 +470,6 @@ class xASLHandler():
                 # by frame
                 _, frame = vid.read()
 
-                # I can start a thread here that processes the frames
-            
                 # Display the resulting frame
                 pred, conf = self.GetPrediction(frame)
                 self.UpdateText(pred,conf)
@@ -511,7 +565,7 @@ def main():
     6. Fine-tune your model.
 
     """
-    signLangHandler = xASLHandler(epochs=30)
+    signLangHandler = xASLHandler(epochs=5)
     signLangHandler.Run()
 
 if __name__ == "__main__":

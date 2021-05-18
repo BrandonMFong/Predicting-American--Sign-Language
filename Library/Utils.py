@@ -178,6 +178,21 @@ class FileSystem():
                     result.append(open(fullFilePath).read())
 
         return result
+
+    def CreatePath(path: str, isFile=False):
+        """
+        Does not create files.  Please specify if the path is a path to a file or else the leaf will be treated as a directory
+        """
+        result = True
+        parDir = os.path.dirname(path)
+        if os.path.exists(parDir) is False:
+            result = FileSystem.CreatePath(parDir)
+
+        if result and os.path.exists(path) is False and isFile is False:
+            os.mkdir(path)
+            result = os.path.exists(path)
+
+        return result 
         
 class InitError(Exception):
     """
