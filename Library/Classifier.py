@@ -30,16 +30,6 @@ class KerasBatchClassifier(KerasClassifier):
 
         ################################################################################################################
 
-
-        # datagen = ImageDataGenerator(
-        #     rotation_range=45,
-        #     width_shift_range=0.2,
-        #     height_shift_range=0.2,
-        #     shear_range=0.2,
-        #     zoom_range=0.2,
-        #     horizontal_flip=True,
-        #     fill_mode='nearest'
-        # )
         datagen = ImageDataGenerator(
             featurewise_center              = False, 
             samplewise_center               = False, 
@@ -76,14 +66,6 @@ class KerasBatchClassifier(KerasClassifier):
 
         epochs = self.sk_params['epochs'] if 'epochs' in self.sk_params else 100
 
-        # self.__history = self.model.fit_generator(
-        #     datagen.flow(X, y, batch_size=32),  
-        #     steps_per_epoch=len(X) / 32,
-        #     validation_data=val_flow, 
-        #     validation_steps=val_steps, 
-        #     epochs=epochs,
-        #     callbacks=callbacks
-        # )
         self.__history = self.model.fit_generator(
             datagen.flow(X, y, batch_size=32),  
             epochs          = epochs, 

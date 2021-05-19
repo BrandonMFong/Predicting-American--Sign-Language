@@ -353,7 +353,11 @@ class xASLHandler():
 
         self._datagen.fit(self._xTrain)
 
-    def CreateModel2(self):
+    def CreateModel2(self, filterOne=128, 
+        filterTwo=64, filterThree=64, filterFour=25,
+        padding="Same",activation="relu", outputActivation="softmax",
+        optimizer="adam"
+    ):
         """ 
         CreateModel2
         ============
@@ -370,11 +374,11 @@ class xASLHandler():
             # Conv2D
             model.add(
                 keras.layers.Conv2D(
-                    filters     = 128, 
+                    filters     = filterOne, 
                     kernel_size = (3,3),
                     strides     = 1,
-                    padding     = 'Same', 
-                    activation  = 'relu', 
+                    padding     = padding, 
+                    activation  = activation, 
                     input_shape = self._reshapeValue
             ))
 
@@ -384,21 +388,21 @@ class xASLHandler():
             # Conv2D
             model.add(
                 keras.layers.Conv2D(
-                    filters     = 64, 
+                    filters     = filterTwo, 
                     kernel_size = (3,3),
                     strides     = 1,
-                    padding     = 'Same', 
-                    activation  ='relu'
+                    padding     = padding, 
+                    activation  = activation
             ))
 
             # Conv2D
             model.add(
                 keras.layers.Conv2D(
-                    filters     = 64, 
+                    filters     = filterThree, 
                     kernel_size = (3,3),
                     strides     = 1,
-                    padding     = 'Same', 
-                    activation  ='relu'
+                    padding     = padding, 
+                    activation  = activation
             ))
 
             # MaxPool2D
@@ -407,11 +411,11 @@ class xASLHandler():
             # Conv2D
             model.add(
                 keras.layers.Conv2D(
-                    filters     = 25, 
+                    filters     = filterFour, 
                     kernel_size = (3,3),
                     strides     = 1,
-                    padding     = 'Same', 
-                    activation  ='relu'
+                    padding     = padding, 
+                    activation  = activation
             ))
 
             # MaxPool2D
@@ -419,15 +423,15 @@ class xASLHandler():
 
             model.add(keras.layers.Flatten())
 
-            model.add(keras.layers.Dense(512, activation = "relu"))
+            model.add(keras.layers.Dense(512, activation = activation))
 
             model.add(keras.layers.Dropout(0.2))
 
             # 25 outputs
-            model.add(keras.layers.Dense(25, activation = "softmax"))
+            model.add(keras.layers.Dense(25, activation = outputActivation))
 
             model.compile(
-                optimizer   = "adam" , 
+                optimizer   = optimizer, 
                 loss        = "categorical_crossentropy", 
                 metrics     = ["accuracy"]
             )
@@ -572,11 +576,25 @@ class xASLHandler():
         self._keepRecording = False 
 
     def ConductParamSearch(self):
-        model = KerasBatchClassifier(build_fn=self.CreateModel2)
+        model = KerasBatchClassifier(
+            build_fn=self.CreateModel2, 
+            filterOne           = 128, 
+            filterTwo           = 64, 
+            filterThree         = 64, 
+            filterFour          = 25,
+            padding             = "Same",
+            activation          = "relu", 
+            outputActivation    = "softmax",
+            optimizer           = "adam"
+        )
         paramGrid = {
-            "epochs":[1,2,3]
+            "epochs"            : [1], 
+            "filterTwo"         : [128, 64],
+            "padding"           : ["Same","valid"],
+            "activation"        : ["sigmoid", "relu"],
+            "outputActivation"  : ["softmax","relu"]
         }
-        grid = GridSearchCV(estimator=model, param_grid=paramGrid, n_jobs=-1, cv=3)
+        grid = GridSearchCV(estimator=model, param_grid=paramGrid, cv=3)
         grid_result = grid.fit(self._xTrain, self._yTrain, X_val = self._xTest, y_val = self._xTest)
         print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
         means = grid_result.cv_results_['mean_test_score']
