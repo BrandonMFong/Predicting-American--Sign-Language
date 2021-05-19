@@ -590,10 +590,10 @@ class xASLHandler():
 
         paramGrid = {
             "epochs"            : [1], 
-            "filterTwo"         : [128, 64]
-            # "padding"           : ["Same","valid"],
-            # "activation"        : ["sigmoid", "relu"],
-            # "outputActivation"  : ["softmax","relu"]
+            "filterTwo"         : [128, 64],
+            "padding"           : ["Same","valid"],
+            "activation"        : ["sigmoid", "relu"],
+            "outputActivation"  : ["softmax","relu"]
         }
 
         grid        = GridSearchCV(estimator=model, param_grid=paramGrid, cv=3)
@@ -631,9 +631,9 @@ def main():
     6. Fine-tune your model.
 
     """
-    doHyperParam = False
-    doTrain     = True and not doHyperParam
-    createModel = True and not doHyperParam
+    doHyperParam    = False
+    doTrain         = True and not doHyperParam
+    createModel     = True and not doHyperParam
 
     signLangHandler = xASLHandler(
         epochs      = 5,
