@@ -2,10 +2,6 @@
 main.py
 ================
 Contains xASLHandler class
-
-Todo
--------------------
-- Properly exit out of application 
 """
 # Brando 
 # 3/30/2021
@@ -285,11 +281,11 @@ class xASLHandler():
                 images.append(image)
                 targetArray.append(row[self._trainData._targetColumns]) # Trusting that test and train data both have same target name
 
-                # # Mirrored image
-                # reversed = row[::-1]
-                # image = np.array_split(reversed[:-1],28)
-                # images.append(image)
-                # targetArray.append(row[self._trainData._targetColumns]) # Trusting that test and train data both have same target name
+                # Mirrored image
+                reversed = row[::-1]
+                image = np.array_split(reversed[:-1],28)
+                images.append(image)
+                targetArray.append(row[self._trainData._targetColumns]) # Trusting that test and train data both have same target name
 
             if len(images) == 0:
                 success = False
@@ -453,20 +449,6 @@ class xASLHandler():
         -------------
         https://www.kaggle.com/hkubra/mnist-cnn-with-keras-99-accuracy
         """
-        # self._batchsize = 128
-        # self._datagen = ImageDataGenerator(
-        #     featurewise_center              = False, 
-        #     samplewise_center               = False, 
-        #     featurewise_std_normalization   = False, 
-        #     samplewise_std_normalization    = False, 
-        #     zca_whitening                   = False, 
-        #     rotation_range                  = 10, 
-        #     zoom_range                      = 0.1, 
-        #     width_shift_range               = 0.1, 
-        #     height_shift_range              = 0.1,
-        #     horizontal_flip                 = False, 
-        #     vertical_flip                   = False
-        # ) 
 
         # self._datagen.fit(self._xTrain)
         _ = self._model.fit_generator(
@@ -576,6 +558,11 @@ class xASLHandler():
         self._keepRecording = False 
 
     def ConductParamSearch(self):
+        """
+        ConductParamSearch
+        ====================
+        The parameter optimization fails at the fit() call.  Due to time, I did not want to deal with the error.  This error does not affect the overall application
+        """
         model = KerasBatchClassifier(
             build_fn=self.CreateModel2, 
             filterOne           = 128, 
@@ -596,9 +583,7 @@ class xASLHandler():
             "outputActivation"  : ["softmax","relu"]
         }
 
-        grid        = GridSearchCV(estimator=model, param_grid=paramGrid, cv=3)
-        print(self._xTrain.loc[0,:,:,:].shape)
-        print(self._yTrain.shape)
+        grid = GridSearchCV(estimator=model, param_grid=paramGrid, cv=3)
         grid_result = grid.fit(
             self._xTrain, 
             self._yTrain, 
