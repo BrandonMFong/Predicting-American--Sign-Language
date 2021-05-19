@@ -5,3 +5,4 @@ from .Utils import Logger
 from .Utils import FunctionLibrary
 from .Utils import YES, NO
 from .Utils import GetPercentage
+from .      import Classifier

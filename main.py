@@ -11,15 +11,18 @@ Todo
 # 3/30/2021
 # Final Project
 
+from    tensorflow.keras.wrappers.scikit_learn  import KerasClassifier
 from    tensorflow                              import keras
 from    atpbar                                  import atpbar
-from tensorflow.python.keras.callbacks import Callback
+from    tensorflow.python.keras.callbacks       import Callback
 from    Library                                 import FunctionLibrary  as fLib
 from    Library                                 import FileSystem       as fs 
+from    Library.Classifier                      import KerasBatchClassifier
 from    Library                                 import Logger, InitError, Base, YES, NO, GetPercentage
 from    tensorflow.keras.preprocessing.image    import ImageDataGenerator
 from    sklearn.model_selection                 import train_test_split
 from    tensorflow.keras.utils                  import to_categorical
+from    sklearn.model_selection                 import GridSearchCV
 import  pandas              as pd 
 import  numpy               as np
 import  matplotlib.pyplot   as plt 
@@ -38,7 +41,7 @@ class PredictionOutput(tk.Tk):
     Shows the ASLHandler's prediction and confidence values 
     https://stackoverflow.com/questions/45397806/update-text-on-a-tkinter-window
     """
-    def __init__(self, stopRecordingCallback: Callback):
+    def __init__(self, stopRecordingCallback: Callback): # TODO take Callback type off of parameter declaration
         tk.Tk.__init__(self)
 
         # Create prediction label 
@@ -115,12 +118,11 @@ class xASLHandler():
     _testArrayName  = "test"
     _trainArrayName = "train"
 
-    def __init__(self,epochs=10) -> None:
+    def __init__(self,epochs=10,doTrain=False,createModel=False) -> None:
         okayToContinue      = True 
         fullTestFilename    = None
         fullTrainFilename   = None
         temp                = None
-        doTrain             = YES
         tempList            = list()
 
         self._trainData         = None
@@ -141,6 +143,8 @@ class xASLHandler():
         self._log               = Logger(scriptName=__file__)
         self._textWindow        = None
         self._keepRecording     = True
+        self._datagen           = None
+        self._batchsize         = 0
 
         if okayToContinue:
             fullTestFilename = fs.GetFilePath(self._rawTestFile)
@@ -176,7 +180,8 @@ class xASLHandler():
             okayToContinue = self._trainData.CreateTrainAndTargetColumns(targetColumns=[self._defaultTargetColumn])
 
         # Create the output window 
-        if okayToContinue:
+        # This causes the param search to fail if this is initiated for some reason 
+        if okayToContinue and createModel and doTrain:
             self._textWindow = PredictionOutput(stopRecordingCallback=self.StopRecording)
             self._textWindow.resizable(width=True, height=True)
             self._textWindow.geometry('{}x{}'.format(200, 200))
@@ -244,7 +249,9 @@ class xASLHandler():
         # Initialize the model 
         if okayToContinue:
             self.GetIOs2()
-            okayToContinue = self.CreateModel2()
+
+        if okayToContinue and createModel:
+            self._model = self.CreateModel2()
 
         # Train the model 
         if okayToContinue and doTrain:
@@ -329,104 +336,8 @@ class xASLHandler():
         self._xTrain    = self._xTrain/255.0
         self._xTest     = self._xTest/255.0
 
-    def CreateModel2(self):
-        """ 
-        CreateModel2
-        ============
-        Second revision of the model 
-
-        https://www.kaggle.com/a7madmostafa/sign-mnist-with-cnn-100-accuracy 
-        """
-        success = True 
-        try:
-            # Establish Sequential model 
-            self._model = keras.Sequential()
-
-            # Conv2D
-            self._model.add(
-                keras.layers.Conv2D(
-                    filters     = 128, 
-                    kernel_size = (3,3),
-                    strides     = 1,
-                    padding     = 'Same', 
-                    activation  = 'relu', 
-                    input_shape = self._reshapeValue
-            ))
-
-            # MaxPool2D
-            self._model.add(keras.layers.MaxPool2D(pool_size=(2,2)))
-
-            # Conv2D
-            self._model.add(
-                keras.layers.Conv2D(
-                    filters     = 64, 
-                    kernel_size = (3,3),
-                    strides     = 1,
-                    padding     = 'Same', 
-                    activation  ='relu'
-            ))
-
-            # Conv2D
-            self._model.add(
-                keras.layers.Conv2D(
-                    filters     = 64, 
-                    kernel_size = (3,3),
-                    strides     = 1,
-                    padding     = 'Same', 
-                    activation  ='relu'
-            ))
-
-            # MaxPool2D
-            self._model.add(keras.layers.MaxPool2D(pool_size=(2,2)))
-
-            # Conv2D
-            self._model.add(
-                keras.layers.Conv2D(
-                    filters     = 25, 
-                    kernel_size = (3,3),
-                    strides     = 1,
-                    padding     = 'Same', 
-                    activation  ='relu'
-            ))
-
-            # MaxPool2D
-            self._model.add(keras.layers.MaxPool2D(pool_size=(2,2)))
-
-            self._model.add(keras.layers.Flatten())
-
-            self._model.add(keras.layers.Dense(512, activation = "relu"))
-
-            self._model.add(keras.layers.Dropout(0.2))
-
-            # 25 outputs
-            self._model.add(keras.layers.Dense(25, activation = "softmax"))
-
-            self._model.compile(
-                optimizer   = "adam" , 
-                loss        = "categorical_crossentropy", 
-                metrics     = ["accuracy"]
-            )
-
-            # Print Summary
-            self._model.summary()
-
-        except Exception as e:
-            self._log.Except(e)
-            success = False 
-        return success
-
-    def Train2(self):
-        """
-        Train2
-        ===========
-        2nd revision of the training 
-
-        References
-        -------------
-        https://www.kaggle.com/hkubra/mnist-cnn-with-keras-99-accuracy
-        """
-        batch_size = 128
-        datagen = ImageDataGenerator(
+        self._batchsize = 128
+        self._datagen = ImageDataGenerator(
             featurewise_center              = False, 
             samplewise_center               = False, 
             featurewise_std_normalization   = False, 
@@ -440,16 +351,129 @@ class xASLHandler():
             vertical_flip                   = False
         ) 
 
-        datagen.fit(self._xTrain)
+        self._datagen.fit(self._xTrain)
+
+    def CreateModel2(self):
+        """ 
+        CreateModel2
+        ============
+        Classifier
+        Second revision of the model 
+
+        https://www.kaggle.com/a7madmostafa/sign-mnist-with-cnn-100-accuracy 
+        """
+        model = None
+        try:
+            # Establish Sequential model 
+            model = keras.Sequential()
+
+            # Conv2D
+            model.add(
+                keras.layers.Conv2D(
+                    filters     = 128, 
+                    kernel_size = (3,3),
+                    strides     = 1,
+                    padding     = 'Same', 
+                    activation  = 'relu', 
+                    input_shape = self._reshapeValue
+            ))
+
+            # MaxPool2D
+            model.add(keras.layers.MaxPool2D(pool_size=(2,2)))
+
+            # Conv2D
+            model.add(
+                keras.layers.Conv2D(
+                    filters     = 64, 
+                    kernel_size = (3,3),
+                    strides     = 1,
+                    padding     = 'Same', 
+                    activation  ='relu'
+            ))
+
+            # Conv2D
+            model.add(
+                keras.layers.Conv2D(
+                    filters     = 64, 
+                    kernel_size = (3,3),
+                    strides     = 1,
+                    padding     = 'Same', 
+                    activation  ='relu'
+            ))
+
+            # MaxPool2D
+            model.add(keras.layers.MaxPool2D(pool_size=(2,2)))
+
+            # Conv2D
+            model.add(
+                keras.layers.Conv2D(
+                    filters     = 25, 
+                    kernel_size = (3,3),
+                    strides     = 1,
+                    padding     = 'Same', 
+                    activation  ='relu'
+            ))
+
+            # MaxPool2D
+            model.add(keras.layers.MaxPool2D(pool_size=(2,2)))
+
+            model.add(keras.layers.Flatten())
+
+            model.add(keras.layers.Dense(512, activation = "relu"))
+
+            model.add(keras.layers.Dropout(0.2))
+
+            # 25 outputs
+            model.add(keras.layers.Dense(25, activation = "softmax"))
+
+            model.compile(
+                optimizer   = "adam" , 
+                loss        = "categorical_crossentropy", 
+                metrics     = ["accuracy"]
+            )
+
+            # Print Summary
+            model.summary()
+
+        except Exception as e:
+            self._log.Except(e)
+        return model
+
+    def Train2(self):
+        """
+        Train2
+        ===========
+        2nd revision of the training 
+
+        References
+        -------------
+        https://www.kaggle.com/hkubra/mnist-cnn-with-keras-99-accuracy
+        """
+        # self._batchsize = 128
+        # self._datagen = ImageDataGenerator(
+        #     featurewise_center              = False, 
+        #     samplewise_center               = False, 
+        #     featurewise_std_normalization   = False, 
+        #     samplewise_std_normalization    = False, 
+        #     zca_whitening                   = False, 
+        #     rotation_range                  = 10, 
+        #     zoom_range                      = 0.1, 
+        #     width_shift_range               = 0.1, 
+        #     height_shift_range              = 0.1,
+        #     horizontal_flip                 = False, 
+        #     vertical_flip                   = False
+        # ) 
+
+        # self._datagen.fit(self._xTrain)
         _ = self._model.fit_generator(
-            datagen.flow(
+            self._datagen.flow(
                 self._xTrain, 
                 self._yTrain, 
-                batch_size = batch_size
+                batch_size = self._batchsize
             ),
             epochs          = self._epochs, 
             validation_data = (self._xTest, self._yTest),
-            steps_per_epoch = self._xTrain.shape[0] // batch_size
+            steps_per_epoch = self._xTrain.shape[0] // self._batchsize
         )
 
     def Record(self):
@@ -547,6 +571,20 @@ class xASLHandler():
         """
         self._keepRecording = False 
 
+    def ConductParamSearch(self):
+        model = KerasBatchClassifier(build_fn=self.CreateModel2)
+        paramGrid = {
+            "epochs":[1,2,3]
+        }
+        grid = GridSearchCV(estimator=model, param_grid=paramGrid, n_jobs=-1, cv=3)
+        grid_result = grid.fit(self._xTrain, self._yTrain, X_val = self._xTest, y_val = self._xTest)
+        print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
+        means = grid_result.cv_results_['mean_test_score']
+        stds = grid_result.cv_results_['std_test_score']
+        params = grid_result.cv_results_['params']
+        for mean, stdev, param in zip(means, stds, params):
+            print("%f (%f) with: %r" % (mean, stdev, param))
+
 def main():
     """
     Final Project
@@ -565,8 +603,19 @@ def main():
     6. Fine-tune your model.
 
     """
-    signLangHandler = xASLHandler(epochs=5)
-    signLangHandler.Run()
+    doTrain     = False 
+    createModel = False 
+
+    signLangHandler = xASLHandler(
+        epochs      = 5,
+        doTrain     = doTrain,
+        createModel = createModel
+    )
+
+    if doTrain and createModel:
+        signLangHandler.Run()
+    else:
+        signLangHandler.ConductParamSearch()
 
 if __name__ == "__main__":
     main()
