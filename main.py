@@ -587,19 +587,29 @@ class xASLHandler():
             outputActivation    = "softmax",
             optimizer           = "adam"
         )
+
         paramGrid = {
             "epochs"            : [1], 
-            "filterTwo"         : [128, 64],
-            "padding"           : ["Same","valid"],
-            "activation"        : ["sigmoid", "relu"],
-            "outputActivation"  : ["softmax","relu"]
+            "filterTwo"         : [128, 64]
+            # "padding"           : ["Same","valid"],
+            # "activation"        : ["sigmoid", "relu"],
+            # "outputActivation"  : ["softmax","relu"]
         }
-        grid = GridSearchCV(estimator=model, param_grid=paramGrid, cv=3)
-        grid_result = grid.fit(self._xTrain, self._yTrain, X_val = self._xTest, y_val = self._xTest)
+
+        grid        = GridSearchCV(estimator=model, param_grid=paramGrid, cv=3)
+        print(self._xTrain.loc[0,:,:,:].shape)
+        print(self._yTrain.shape)
+        grid_result = grid.fit(
+            self._xTrain, 
+            self._yTrain, 
+            X_val = self._xTest, 
+            y_val = self._xTest
+        )
+
         print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
-        means = grid_result.cv_results_['mean_test_score']
-        stds = grid_result.cv_results_['std_test_score']
-        params = grid_result.cv_results_['params']
+        means   = grid_result.cv_results_['mean_test_score']
+        stds    = grid_result.cv_results_['std_test_score']
+        params  = grid_result.cv_results_['params']
         for mean, stdev, param in zip(means, stds, params):
             print("%f (%f) with: %r" % (mean, stdev, param))
 
@@ -621,8 +631,9 @@ def main():
     6. Fine-tune your model.
 
     """
-    doTrain     = False 
-    createModel = False 
+    doHyperParam = False
+    doTrain     = True and not doHyperParam
+    createModel = True and not doHyperParam
 
     signLangHandler = xASLHandler(
         epochs      = 5,
